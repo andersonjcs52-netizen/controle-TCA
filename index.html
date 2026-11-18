@@ -158,7 +158,6 @@
     flex-shrink: 0;
   }
 
-  /* Cartão de Linha Totalmente Responsivo (Mobile & Desktop) */
   .row-card {
     display: flex;
     flex-direction: column;
@@ -267,7 +266,6 @@
 </head>
 <body>
 
-<!-- Cabeçalho Institucional (Oculto na tela de Login) -->
 <header id="main-header" style="display: none; background: linear-gradient(135deg, #1b5e32 0%, #2d4c36 55%, #5c3f2e 100%); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
   <div style="max-width: 1140px; margin: 0 auto; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
     <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" data-action="nav" data-view="painel">
@@ -281,17 +279,15 @@
   </div>
 </header>
 
-<!-- Área Principal -->
 <main id="app" style="max-width: 1140px; margin: 0 auto; padding: 14px 12px;"></main>
 
-<!-- Modais, Toasts e Importação -->
 <div id="modal-root"></div>
 <div id="toast-container"></div>
 <input type="file" id="import-file" accept=".json" style="display:none">
 
 <script>
 /* =========================================================================
-   1. ESTADO E ARMAZENAMENTO SEGURO
+1. ESTADO E ARMAZENAMENTO SEGURO
    ========================================================================= */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -304,6 +300,7 @@ let editingDeadlineIdx = null;
 let deleteArmedId = null;
 let searchQuery = '';
 let statusFilter = 'all';
+let ownerFilter = 'all'; // Filtro exclusivo para o Administrador filtrar por técnico
 
 const memoryStore = {};
 function storageGet(key) {
@@ -348,10 +345,10 @@ function toast(msg, type = 'success') {
   setTimeout(() => { if (el.parentElement) el.remove(); }, 4000);
 }
 
-const STORAGE_CONTRACTS = 'tca_contracts_v6';
-const STORAGE_USERS = 'tca_users_v6';
-const STORAGE_SESSION = 'tca_session_v6';
-const STORAGE_THEME = 'tca_theme_v6';
+const STORAGE_CONTRACTS = 'tca_contracts_v7';
+const STORAGE_USERS = 'tca_users_v7';
+const STORAGE_SESSION = 'tca_session_v7';
+const STORAGE_THEME = 'tca_theme_v7';
 
 const ADMIN_LOGIN = 'AdminSistema';
 const ADMIN_PASS = 'Senha200#';
@@ -361,6 +358,27 @@ let users = [];
 let currentUser = null;
 
 const isAdminUser = u => u && (u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+
+/* =========================================================================
+   CONTROLE DE VISIBILIDADE POR USUÁRIO (SOMENTE ADMIN VÊ TUDO)
+   ========================================================================= */
+function canUserAccessContract(c, u = currentUser) {
+  if (!u || !c) return false;
+  if (isAdminUser(u)) return true;
+  if (c.ownerId && u.id && c.ownerId === u.id) return true;
+  const uEmail = String(u.email || '').trim().toLowerCase();
+  const uLogin = String(u.login || '').trim().toLowerCase();
+  const cOwnerEmail = String(c.ownerEmail || '').trim().toLowerCase();
+  if (cOwnerEmail && (cOwnerEmail === uEmail || cOwnerEmail === uLogin)) return true;
+  return false;
+}
+
+function getVisibleContracts() {
+  if (!currentUser) return [];
+  const list = Array.isArray(contracts) ? contracts : [];
+  if (isAdminUser(currentUser)) return list;
+  return list.filter(c => canUserAccessContract(c, currentUser));
+}
 
 function ensureMasterAdminExists() {
   const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
@@ -376,7 +394,7 @@ function ensureMasterAdminExists() {
     createdAt: today()
   };
   if (adminIdx >= 0) {
-    users[adminIdx] = { ...users[adminIdx], login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
+    users[adminIdx] = { ...users[adminIdx], id: 'usr_admin_master', login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
   } else {
     users.unshift(adminObj);
   }
@@ -390,7 +408,7 @@ const SUPABASE_API_KEY = 'sb_publishable_bDcSvRft7bP0sIbflUnHfQ_1xb_lJbf';
 const SUPABASE_TABLE = 'tca_contracts';
 const USERS_CLOUD_DOC_ID = '__tca_system_users__';
 
-let cloudStatus = 'connecting'; // 'connecting' | 'online' | 'error'
+let cloudStatus = 'connecting';
 let cloudErrorDetail = '';
 
 function supabaseHeaders(prefer = 'return=minimal') {
@@ -535,13 +553,13 @@ function updateLoginCloudBadge() {
   const el = $('#login-cloud-status');
   if (!el) return;
   if (cloudStatus === 'online') {
-    el.innerHTML = `<span style="color:var(--ok);font-weight:600;">☁️ Banco na Nuvem Conectado (${users.length} conta${users.length > 1 ? 's' : ''} sincronizada${users.length > 1 ? 's' : ''})</span>`;
+    el.innerHTML = `<span style="color:var(--ok);font-weight:600;">☁️ Banco na Nuvem Conectado</span>`;
   } else if (cloudStatus === 'connecting') {
     el.innerHTML = `<span style="color:var(--mu);">⏳ Sincronizando contas com o Supabase...</span>`;
   } else {
     el.innerHTML = `
       <div style="background:var(--da-bg);color:var(--da);padding:8px 10px;border-radius:8px;font-size:11.5px;text-align:left;margin-top:6px;">
-        <b>⚠️ Supabase ainda não conectado:</b> As contas criadas só funcionarão em outros navegadores após você criar a tabela <code>tca_contracts</code> no menu <b>SQL Editor</b> do Supabase.<br>
+        <b>⚠️ Supabase ainda não conectado:</b> Verifique a tabela <code>tca_contracts</code> no menu <b>SQL Editor</b> do Supabase.<br>
         <span style="font-size:10.5px;opacity:0.85;">Detalhe: ${esc(cloudErrorDetail)}</span>
       </div>
     `;
@@ -549,7 +567,7 @@ function updateLoginCloudBadge() {
 }
 
 /* =========================================================================
-   2. REGRAS DE NEGÓCIO DO TCA
+2. REGRAS DE NEGÓCIO DO TCA
    ========================================================================= */
 const isPermitIssued = c => c.effType === 'alvara' && (c.permitIssued !== undefined ? !!c.permitIssued : !!c.permitDate);
 const eff = c => {
@@ -646,6 +664,9 @@ function seedInitialData() {
   if (!Array.isArray(contracts) || !contracts.length) {
     const c1 = {
       id: 'tca_demo_1',
+      ownerId: 'usr_admin_master',
+      ownerName: 'Administrador do Sistema',
+      ownerEmail: ADMIN_LOGIN,
       client: 'Incorporadora Parque Aliança S.A.',
       address: 'Rua Vergueiro, 3100 - Vila Mariana, São Paulo/SP',
       sei: '6027.2026/0005678-9',
@@ -679,6 +700,9 @@ function seedInitialData() {
 
     const c2 = {
       id: 'tca_demo_2',
+      ownerId: 'usr_admin_master',
+      ownerName: 'Administrador do Sistema',
+      ownerEmail: ADMIN_LOGIN,
       client: 'Construtora Horizonte Paulista Ltda.',
       address: 'Av. Paulista, 1850 - Bela Vista, São Paulo/SP',
       sei: '6027.2026/0001234-5',
@@ -736,7 +760,7 @@ function navigateTo(view, contractId = null) {
 }
 
 /* =========================================================================
-   3. CABEÇALHO E ETIQUETAS DE STATUS
+3. CABEÇALHO E ETIQUETAS DE STATUS
    ========================================================================= */
 function renderHeader() {
   const hdr = $('#main-header');
@@ -746,10 +770,11 @@ function renderHeader() {
   }
   hdr.style.display = 'block';
 
+  const visibleCount = getVisibleContracts().length;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const navItems = [
     ['painel', '📊 Painel'],
-    ['contratos', `📁 Contratos (${contracts.length})`],
+    ['contratos', `📁 ${isAdminUser(currentUser) ? 'Todos os Contratos' : 'Meus Contratos'} (${visibleCount})`],
     ['novo', '➕ Novo']
   ];
   if (isAdminUser(currentUser)) {
@@ -757,7 +782,7 @@ function renderHeader() {
   }
 
   const cloudBadge = cloudStatus === 'online'
-    ? `<button type="button" data-action="sync-cloud" title="Conectado ao Supabase (Clique para atualizar dados da nuvem)" style="background:rgba(34,197,94,0.22);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:600;">☁️ Supabase Online ↻</button>`
+    ? `<button type="button" data-action="sync-cloud" title="Conectado ao Supabase (Clique para atualizar)" style="background:rgba(34,197,94,0.22);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:600;">☁️ Supabase Online ↻</button>`
     : cloudStatus === 'connecting'
       ? `<button type="button" data-action="sync-cloud" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;">⏳ Sincronizando…</button>`
       : `<button type="button" data-action="sync-cloud" title="${esc(cloudErrorDetail)}" style="background:rgba(239,68,68,0.35);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:600;">⚠️ Local (Tentar Nuvem ↻)</button>`;
@@ -769,7 +794,7 @@ function renderHeader() {
     ${cloudBadge}
     <button type="button" data-action="toggle-theme" title="Alternar Tema" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:6px 9px;border-radius:8px;cursor:pointer;font-size:13px;">${isDark ? '☀️' : '🌙'}</button>
     <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.25);padding:4px 9px;border-radius:8px;font-size:12px;margin-left:auto;">
-      <span>👤 ${esc((currentUser?.name || currentUser?.login || 'Usuário').split(' ')[0])}</span>
+      <span>${isAdminUser(currentUser) ? '🛡️' : '👤'} ${esc((currentUser?.name || currentUser?.login || 'Usuário').split(' ')[0])}</span>
       <button type="button" data-action="logout" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Sair</button>
     </div>
   `;
@@ -789,7 +814,7 @@ function tagFor(d) {
 }
 
 /* =========================================================================
-   4. TELA INICIAL DE LOGIN E TROCA DE SENHA NO PRIMEIRO ACESSO
+4. TELA INICIAL DE LOGIN E TROCA DE SENHA NO PRIMEIRO ACESSO
    ========================================================================= */
 function viewLogin() {
   if (currentUser && currentUser.mustChangePass) {
@@ -851,7 +876,7 @@ function viewLogin() {
         <div id="login-cloud-status" style="margin-top: 12px; text-align: center; font-size: 12px;"></div>
 
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bd); text-align: center; font-size: 12px; color: var(--mu);">
-          Acesso restrito a usuários autorizados. Novas contas são cadastradas exclusivamente pelo Administrador.
+          Acesso restrito a usuários autorizados. Cada técnico visualiza apenas os seus próprios contratos cadastrados.
         </div>
       </div>
     </div>
@@ -859,7 +884,7 @@ function viewLogin() {
 }
 
 /* =========================================================================
-   5. GESTÃO DE USUÁRIOS (EXCLUSIVO PARA ADMINISTRADOR)
+5. GESTÃO DE USUÁRIOS (EXCLUSIVO PARA ADMINISTRADOR)
    ========================================================================= */
 function viewUsuarios() {
   const isAdmin = isAdminUser(currentUser);
@@ -906,15 +931,18 @@ function viewUsuarios() {
         <div class="card" style="border-top: 4px solid var(--br);">
           <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--br);">👥 Contas Cadastradas (${users.length})</h3>
           <div style="display: flex; flex-direction: column; gap: 8px;">
-            ${users.map(u => `
+            ${users.map(u => {
+              const userContractCount = contracts.filter(c => canUserAccessContract(c, u) && !u.isAdmin).length;
+              return `
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); gap: 8px; flex-wrap: wrap;">
                 <div style="min-width: 0; flex: 1;">
                   <div style="font-weight: 700; font-size: 13.5px;">
                     ${esc(u.name)}
                     ${currentUser.id === u.id ? '<span class="tag ok" style="margin-left:4px;">Você</span>' : ''}
+                    ${!u.isAdmin ? `<span class="tag" style="margin-left:4px;">${userContractCount} contrato(s)</span>` : ''}
                   </div>
                   <div style="font-size: 12px; color: var(--mu);">
-                    ${esc(u.isAdmin ? 'Conta Administrador' : (u.email || u.login))} · ${esc(u.role || 'Técnico')}
+                    ${esc(u.isAdmin ? 'Conta Administrador (Visualiza tudo)' : (u.email || u.login))} · ${esc(u.role || 'Técnico')}
                     ${u.mustChangePass ? ' · <span style="color:var(--wa);font-weight:600;">Aguardando troca de senha</span>' : ''}
                   </div>
                 </div>
@@ -922,7 +950,8 @@ function viewUsuarios() {
                   <button type="button" class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Remover</button>
                 ` : '<span class="tag">Admin</span>'}
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
         </div>
       </div>
@@ -939,27 +968,36 @@ function viewUsuarios() {
 }
 
 /* =========================================================================
-   6. PAINEL / DASHBOARD RESPONSIVO (MOBILE & DESKTOP)
+6. PAINEL / DASHBOARD RESPONSIVO (FILTRADO POR USUÁRIO)
    ========================================================================= */
 function viewPainel() {
-  const safeContracts = Array.isArray(contracts) ? contracts : [];
-  const open = safeContracts.filter(c => !c.doneAll);
+  const isAdmin = isAdminUser(currentUser);
+  const visibleContracts = getVisibleContracts();
+  const open = visibleContracts.filter(c => !c.doneAll);
   const all = open.flatMap(c => (c.deadlines || []).map(d => ({ c, d }))).filter(x => !x.d.done && x.d.active !== false && x.d.due);
 
   const lateList = all.filter(x => diff(x.d.due) < 0);
   const soonList = all.filter(x => { const n = diff(x.d.due); return n >= 0 && n <= 15; });
   const onTimeList = all.filter(x => diff(x.d.due) > 15);
-  const avg = safeContracts.length ? Math.round(safeContracts.reduce((s, c) => s + progress(c), 0) / safeContracts.length) : 0;
+  const avg = visibleContracts.length ? Math.round(visibleContracts.reduce((s, c) => s + progress(c), 0) / visibleContracts.length) : 0;
   const next = all.sort((a, b) => a.d.due.localeCompare(b.d.due)).slice(0, 14);
 
   return `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
       <div>
-        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">Painel Geral · Controle de Prazos TCA</h2>
-        <div style="color: var(--mu); font-size: 12.5px;">Eficácia, alvará, manejos, plantio até o fim da obra, Viveiro, FEMA e Aditivos</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 700;">Painel Geral · Controle de Prazos TCA</h2>
+          ${isAdmin
+            ? '<span class="tag ok">🛡️ Visão Geral do Administrador (Todos os Usuários)</span>'
+            : `<span class="tag">👤 Meus Contratos (${esc(currentUser.name)})</span>`
+          }
+        </div>
+        <div style="color: var(--mu); font-size: 12.5px; margin-top: 2px;">
+          ${isAdmin ? 'Visualizando todos os contratos cadastrados por todos os técnicos no sistema' : 'Visualizando exclusivamente os contratos cadastrados na sua conta'}
+        </div>
       </div>
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-        ${isAdminUser(currentUser) ? `<button type="button" class="btn btn-sm btn-brown" data-action="nav" data-view="usuarios">👤 Cadastrar Novo Usuário</button>` : ''}
+        ${isAdmin ? `<button type="button" class="btn btn-sm btn-brown" data-action="nav" data-view="usuarios">👤 Cadastrar Novo Usuário</button>` : ''}
         <button type="button" class="btn btn-sm btn-primary" data-action="nav" data-view="novo">➕ Novo Contrato</button>
       </div>
     </div>
@@ -978,7 +1016,7 @@ function viewPainel() {
 
     <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 14px;">
       <div class="card" style="border-top: 4px solid var(--pr); margin:0;">
-        <div style="color: var(--mu); font-size: 11px; font-weight: 700;">CONTRATOS ATIVOS</div>
+        <div style="color: var(--mu); font-size: 11px; font-weight: 700;">${isAdmin ? 'CONTRATOS ATIVOS (GERAL)' : 'MEUS CONTRATOS ATIVOS'}</div>
         <div style="font-size: 24px; font-weight: 700; margin: 3px 0;">${open.length}</div>
         <div style="color: var(--mu); font-size: 11.5px;">Média: ${avg}% concluído</div>
       </div>
@@ -1016,7 +1054,10 @@ function viewPainel() {
         return `
           <div class="row-card">
             <div class="row-card-main" style="cursor: pointer;" data-action="open-contract" data-id="${c.id}">
-              <div style="font-weight: 700; font-size: 14.5px; color: var(--tx); margin-bottom: 3px;">${esc(d.name)}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                <span style="font-weight: 700; font-size: 14.5px; color: var(--tx);">${esc(d.name)}</span>
+                ${isAdmin && c.ownerName ? `<span class="tag" style="font-size:10.5px;">👤 ${esc(c.ownerName)}</span>` : ''}
+              </div>
               <div style="color: var(--mu); font-size: 12.5px; line-height: 1.4;">
                 <b style="color: var(--tx);">${esc(c.client)}</b>
                 ${c.tca ? ` · TCA ${esc(c.tca)}` : ''}
@@ -1042,13 +1083,19 @@ function viewPainel() {
 }
 
 /* =========================================================================
-   7. LISTA DE CONTRATOS RESPONSIVA
+7. LISTA DE CONTRATOS RESPONSIVA (FILTRADA POR USUÁRIO)
    ========================================================================= */
 function viewLista() {
+  const isAdmin = isAdminUser(currentUser);
+  const visibleContracts = getVisibleContracts();
   const q = (searchQuery || '').toLowerCase();
-  const filtered = contracts.filter(c => {
-    const matchText = [c.client, c.address, c.sei, c.tca, c.responsible].join(' ').toLowerCase().includes(q);
+
+  const filtered = visibleContracts.filter(c => {
+    const matchText = [c.client, c.address, c.sei, c.tca, c.responsible, c.ownerName, c.ownerEmail].join(' ').toLowerCase().includes(q);
     if (!matchText) return false;
+    if (isAdmin && ownerFilter !== 'all') {
+      if ((c.ownerId || 'unassigned') !== ownerFilter) return false;
+    }
     if (statusFilter === 'late') return c.deadlines.some(overdue) && !c.doneAll;
     if (statusFilter === 'open') return !c.doneAll;
     if (statusFilter === 'done') return !!c.doneAll;
@@ -1058,8 +1105,8 @@ function viewLista() {
   return `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
       <div>
-        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">📁 Contratos TCA Cadastrados</h2>
-        <div style="color: var(--mu); font-size: 12.5px;">Gerenciamento completo dos compromissos ambientais</div>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">📁 ${isAdmin ? 'Todos os Contratos TCA' : 'Meus Contratos TCA'}</h2>
+        <div style="color: var(--mu); font-size: 12.5px;">${isAdmin ? 'Visão global de todos os técnicos cadastrados' : 'Apenas os contratos cadastrados pelo seu usuário'}</div>
       </div>
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
         <button type="button" class="btn btn-sm" data-action="export-json">⬇ Backup JSON</button>
@@ -1069,7 +1116,18 @@ function viewLista() {
     </div>
 
     <div class="card" style="margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px;">
-      <input id="search-input" placeholder="🔍 Buscar por cliente, endereço, SEI, nº TCA ou responsável…" value="${esc(searchQuery)}">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <input id="search-input" style="flex: 2; min-width: 220px;" placeholder="🔍 Buscar por cliente, endereço, SEI, nº TCA ou responsável…" value="${esc(searchQuery)}">
+        ${isAdmin ? `
+          <select id="owner-filter-select" style="flex: 1; min-width: 190px;">
+            <option value="all" ${ownerFilter === 'all' ? 'selected' : ''}>👥 Todos os Usuários (${visibleContracts.length})</option>
+            ${users.map(u => {
+              const cnt = visibleContracts.filter(c => (c.ownerId || '') === u.id).length;
+              return `<option value="${esc(u.id)}" ${ownerFilter === u.id ? 'selected' : ''}>👤 ${esc(u.name)} (${cnt})</option>`;
+            }).join('')}
+          </select>
+        ` : ''}
+      </div>
       <div style="display: flex; gap: 6px; flex-wrap: wrap;">
         ${[['all', 'Todos'], ['open', 'Ativos'], ['late', 'Com Atraso'], ['done', 'Concluídos']].map(([k, label]) => `
           <button type="button" class="btn btn-sm ${statusFilter === k ? 'btn-brown' : ''}" data-action="set-filter" data-filter="${k}" style="flex:1;">${label}</button>
@@ -1088,6 +1146,7 @@ function viewLista() {
               <strong style="font-size: 15px;">${esc(c.client)}</strong>
               ${c.tca ? `<span class="tag">TCA ${esc(c.tca)}</span>` : ''}
               ${c.sei ? `<span class="tag" style="background:var(--ac);color:var(--pr);">SEI ${esc(c.sei)}</span>` : ''}
+              ${isAdmin && c.ownerName ? `<span class="tag" style="background:var(--br-light);color:var(--br);">👤 ${esc(c.ownerName)}</span>` : ''}
             </div>
             <div style="color: var(--mu); font-size: 12.5px;">
               📍 ${esc(c.address)} ${c.responsible ? ` · 👷 ${esc(c.responsible)}` : ''}
@@ -1113,16 +1172,26 @@ function viewLista() {
           </div>
         </div>
       `;
-    }).join('') + `</div>` : `<div class="card" style="text-align: center; color: var(--mu); padding: 24px;">Nenhum contrato encontrado.</div>`}
+    }).join('') + `</div>` : `<div class="card" style="text-align: center; color: var(--mu); padding: 24px;">Nenhum contrato encontrado para sua conta. Clique em <b>➕ Novo Contrato</b> para cadastrar.</div>`}
   `;
 }
 
 /* =========================================================================
-   8. DETALHE DO CONTRATO RESPONSIVO
+8. DETALHE DO CONTRATO RESPONSIVO (COM PROTEÇÃO DE ACESSO)
    ========================================================================= */
 function viewDetalhe(id) {
   const c = contracts.find(x => x.id === id);
   if (!c) return `<div class="card">Contrato não encontrado. <button type="button" class="btn btn-sm" data-action="nav" data-view="contratos">Voltar</button></div>`;
+  if (!canUserAccessContract(c, currentUser)) {
+    return `
+      <div class="card" style="text-align:center;padding:28px;">
+        <div style="font-size:28px;margin-bottom:8px;">🔒</div>
+        <div style="font-weight:700;font-size:15px;">Acesso Negado</div>
+        <div style="color:var(--mu);font-size:13px;margin:4px 0 14px;">Este contrato pertence a outro usuário. Apenas o titular ou o Administrador podem visualizá-lo.</div>
+        <button type="button" class="btn btn-sm btn-primary" data-action="nav" data-view="contratos">← Voltar aos Meus Contratos</button>
+      </div>
+    `;
+  }
 
   const nLate = c.deadlines.filter(overdue).length;
   const a = act(c);
@@ -1141,6 +1210,7 @@ function viewDetalhe(id) {
         <span class="tag">TCA ${esc(c.tca || 'S/N')}</span>
         ${c.sei ? `<span class="tag" style="background:var(--ac);color:var(--pr);">SEI ${esc(c.sei)}</span>` : ''}
         <span class="tag">${c.effType === 'alvara' ? (isPermitIssued(c) ? '📜 Alvará Emitido' : '⏳ Aguardando Alvará') : '📰 Sem Alvará'}</span>
+        ${c.ownerName ? `<span class="tag">👤 Cadastrado por: ${esc(c.ownerName)}</span>` : ''}
         ${c.doneAll ? '<span class="tag ok">✓ Finalizado</span>' : ''}
       </div>
       <h2 style="margin: 0; font-size: 20px; font-weight: 700;">${esc(c.client)}</h2>
@@ -1273,7 +1343,7 @@ function viewDetalhe(id) {
 
 function openManageDeadlinesModal(contractId) {
   const c = contracts.find(x => x.id === contractId);
-  if (!c) return;
+  if (!c || !canUserAccessContract(c, currentUser)) return;
   const root = $('#modal-root');
   root.innerHTML = `
     <div class="modal-backdrop">
@@ -1316,7 +1386,7 @@ function openManageDeadlinesModal(contractId) {
 }
 
 /* =========================================================================
-   9. FORMULÁRIOS DE CONTRATO E ADITIVO
+9. FORMULÁRIOS DE CONTRATO E ADITIVO
    ========================================================================= */
 function renderObligationsSection(c) {
   const v = k => esc(c?.[k] ?? '');
@@ -1387,9 +1457,11 @@ function renderObligationsSection(c) {
 function viewForm(id) {
   const c = id ? contracts.find(x => x.id === id) : null;
   if (id && !c) return `<div class="card">Contrato não encontrado.</div>`;
+  if (c && !canUserAccessContract(c, currentUser)) return `<div class="card">Você não tem permissão para editar este contrato.</div>`;
   const v = k => esc(c?.[k] ?? '');
   const effType = c?.effType || 'extrato';
   const permitIssued = c ? isPermitIssued(c) : true;
+  const isAdmin = isAdminUser(currentUser);
 
   return `
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
@@ -1406,6 +1478,17 @@ function viewForm(id) {
           <div><label class="field-label">Processo SEI</label><input name="sei" value="${v('sei')}"></div>
           <div><label class="field-label">Nº do TCA</label><input name="tca" value="${v('tca')}"></div>
           <div><label class="field-label">Responsável pelo Acompanhamento</label><input name="responsible" value="${v('responsible')}"></div>
+          ${isAdmin ? `
+            <div>
+              <label class="field-label">Usuário Titular do Contrato</label>
+              <select name="ownerId">
+                ${users.map(u => {
+                  const selectedId = c ? (c.ownerId || currentUser.id) : currentUser.id;
+                  return `<option value="${esc(u.id)}" ${selectedId === u.id ? 'selected' : ''}>${esc(u.name)} (${esc(u.email || u.login)})</option>`;
+                }).join('')}
+              </select>
+            </div>
+          ` : ''}
         </div>
       </div>
 
@@ -1465,7 +1548,7 @@ function viewForm(id) {
 
 function viewAditivo(id) {
   const c = contracts.find(x => x.id === id);
-  if (!c) return `<div class="card">Contrato não encontrado.</div>`;
+  if (!c || !canUserAccessContract(c, currentUser)) return `<div class="card">Contrato não encontrado ou acesso restrito.</div>`;
   const n = (c.amendments || []).length + 1;
   const numStr = String(n).padStart(2, '0');
   const pend = c.deadlines.filter(d => !d.done && d.active !== false);
@@ -1547,7 +1630,7 @@ function copyContractSummary(c) {
 }
 
 /* =========================================================================
-   10. RENDERIZAÇÃO E EVENTOS GLOBAIS
+10. RENDERIZAÇÃO E EVENTOS GLOBAIS
    ========================================================================= */
 function render() {
   renderHeader();
@@ -1585,6 +1668,7 @@ document.addEventListener('click', e => {
     currentUser = null;
     storageRemove(STORAGE_SESSION);
     currentView = 'painel';
+    ownerFilter = 'all';
     toast('Sessão encerrada.');
     render();
     return;
@@ -1606,29 +1690,38 @@ document.addEventListener('click', e => {
 
   if (action === 'quick-done') {
     const cid = btn.dataset.cid, idx = +btn.dataset.idx, c = contracts.find(x => x.id === cid);
-    if (c && c.deadlines[idx]) { c.deadlines[idx].done = true; c.deadlines[idx].doneDate = today(); saveContract(c); toast('Prazo concluído!'); render(); }
+    if (c && canUserAccessContract(c, currentUser) && c.deadlines[idx]) {
+      c.deadlines[idx].done = true;
+      c.deadlines[idx].doneDate = today();
+      saveContract(c);
+      toast('Prazo concluído!');
+      render();
+    }
     return;
   }
 
   if (action === 'set-filter') { statusFilter = btn.dataset.filter; render(); return; }
 
   if (action === 'export-json') {
-    const blob = new Blob([JSON.stringify(contracts, null, 2)], { type: 'application/json' });
+    const dataToExport = getVisibleContracts();
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `contratos-tca-${today()}.json`; a.click();
     toast('Backup JSON exportado!'); return;
   }
   if (action === 'trigger-import') { $('#import-file')?.click(); return; }
   if (action === 'open-manage-modal') { openManageDeadlinesModal(btn.dataset.id); return; }
-  if (action === 'copy-sei') { const c = contracts.find(x => x.id === btn.dataset.id); if (c) copyContractSummary(c); return; }
+  if (action === 'copy-sei') { const c = contracts.find(x => x.id === btn.dataset.id); if (c && canUserAccessContract(c, currentUser)) copyContractSummary(c); return; }
 
   if (action === 'toggle-finish-contract') {
     const c = contracts.find(x => x.id === btn.dataset.id);
-    if (c) { c.doneAll = !c.doneAll; saveContract(c); toast(c.doneAll ? 'TCA marcado como concluído!' : 'TCA reaberto.'); render(); }
+    if (c && canUserAccessContract(c, currentUser)) { c.doneAll = !c.doneAll; saveContract(c); toast(c.doneAll ? 'TCA marcado como concluído!' : 'TCA reaberto.'); render(); }
     return;
   }
 
   if (action === 'delete-contract') {
     const cid = btn.dataset.id;
+    const c = contracts.find(x => x.id === cid);
+    if (!c || !canUserAccessContract(c, currentUser)) return;
     if (deleteArmedId !== cid) { deleteArmedId = cid; toast('Toque novamente para confirmar a exclusão.', 'warn'); render(); return; }
     contracts = contracts.filter(x => x.id !== cid);
     saveContractsToStorage();
@@ -1643,7 +1736,7 @@ document.addEventListener('click', e => {
   if (action === 'save-inline-date') {
     const c = contracts.find(x => x.id === btn.dataset.id), idx = +btn.dataset.idx, nv = $('#inline-date-input')?.value;
     editingDeadlineIdx = null;
-    if (c && c.deadlines[idx] && nv && nv !== c.deadlines[idx].due) {
+    if (c && canUserAccessContract(c, currentUser) && c.deadlines[idx] && nv && nv !== c.deadlines[idx].due) {
       const d = c.deadlines[idx]; d.ext = [...(d.ext || []), { from: d.due, to: nv, ad: 0 }]; d.due = nv; saveContract(c); toast('Data atualizada!');
     }
     render(); return;
@@ -1651,12 +1744,12 @@ document.addEventListener('click', e => {
 
   if (action === 'done-deadline') {
     const c = contracts.find(x => x.id === btn.dataset.id), idx = +btn.dataset.idx;
-    if (c && c.deadlines[idx]) { c.deadlines[idx].done = true; c.deadlines[idx].doneDate = today(); saveContract(c); toast('Concluído!'); render(); }
+    if (c && canUserAccessContract(c, currentUser) && c.deadlines[idx]) { c.deadlines[idx].done = true; c.deadlines[idx].doneDate = today(); saveContract(c); toast('Concluído!'); render(); }
     return;
   }
   if (action === 'undo-deadline') {
     const c = contracts.find(x => x.id === btn.dataset.id), idx = +btn.dataset.idx;
-    if (c && c.deadlines[idx]) { c.deadlines[idx].done = false; c.deadlines[idx].doneDate = null; saveContract(c); toast('Desfeito.'); render(); }
+    if (c && canUserAccessContract(c, currentUser) && c.deadlines[idx]) { c.deadlines[idx].done = false; c.deadlines[idx].doneDate = null; saveContract(c); toast('Desfeito.'); render(); }
     return;
   }
 
@@ -1683,6 +1776,11 @@ document.addEventListener('click', e => {
 
 document.addEventListener('change', e => {
   const cb = e.target;
+  if (cb.id === 'owner-filter-select') {
+    ownerFilter = cb.value;
+    render();
+    return;
+  }
   if (cb.matches('input[type="checkbox"][data-card-id]')) {
     const card = document.getElementById(cb.dataset.cardId);
     if (card) card.classList.toggle('active', cb.checked);
@@ -1795,7 +1893,7 @@ document.addEventListener('submit', async e => {
     users.push(nu);
     const savedCloud = await saveUsersToStorageAndCloud();
     if (savedCloud) {
-      toast(`☁️ Usuário ${nu.name} salvo no Supabase! Já pode logar em qualquer navegador.`);
+      toast(`☁️ Usuário ${nu.name} salvo no Supabase!`);
     }
     form.reset(); render(); return;
   }
@@ -1812,13 +1910,37 @@ document.addEventListener('submit', async e => {
     const ob = parseObligationsFromForm(fd, effDate);
     if (!ob) return;
 
+    const old = editId ? contracts.find(x => x.id === editId) : null;
+    if (old && !canUserAccessContract(old, currentUser)) { toast('Sem permissão para editar este contrato.', 'error'); return; }
+
+    let ownerId = old?.ownerId || currentUser.id;
+    let ownerName = old?.ownerName || currentUser.name;
+    let ownerEmail = old?.ownerEmail || currentUser.email || currentUser.login;
+
+    if (isAdminUser(currentUser) && o.ownerId) {
+      const selectedOwner = users.find(u => u.id === o.ownerId);
+      if (selectedOwner) {
+        ownerId = selectedOwner.id;
+        ownerName = selectedOwner.name;
+        ownerEmail = selectedOwner.email || selectedOwner.login;
+      }
+    }
+
     const base = {
-      client: o.client.trim(), address: o.address.trim(), sei: (o.sei || '').trim(), tca: (o.tca || '').trim(),
-      responsible: (o.responsible || '').trim(), effType: o.effType, permitIssued: isAlvara ? permitIssued : false,
-      extractDate: extDate, permitDate: permDate
+      ownerId,
+      ownerName,
+      ownerEmail,
+      client: o.client.trim(),
+      address: o.address.trim(),
+      sei: (o.sei || '').trim(),
+      tca: (o.tca || '').trim(),
+      responsible: (o.responsible || '').trim(),
+      effType: o.effType,
+      permitIssued: isAlvara ? permitIssued : false,
+      extractDate: extDate,
+      permitDate: permDate
     };
 
-    const old = editId ? contracts.find(x => x.id === editId) : null;
     const nc = { ...(old || {}), ...base, ...ob, id: old?.id || uid(), created: old?.created || today(), doneAll: old?.doneAll || false, amendments: old?.amendments || [] };
     nc.deadlines = build({ ...nc, deadlines: old?.deadlines || [] });
 
@@ -1827,12 +1949,14 @@ document.addEventListener('submit', async e => {
 
   if (form.id === 'quick-issue-permit-form') {
     const c = contracts.find(x => x.id === form.dataset.cid), pDate = new FormData(form).get('permitDate');
+    if (!c || !canUserAccessContract(c, currentUser)) return;
     if (!pDate) { toast('Informe a data de emissão do alvará.', 'error'); return; }
     c.permitIssued = true; c.permitDate = pDate; c.deadlines = build(c); saveContract(c); toast('Alvará registrado e prazos calculados!'); render(); return;
   }
 
   if (form.id === 'quick-schedule-form') {
     const c = contracts.find(x => x.id === form.dataset.cid), fd = new FormData(form), effDate = eff(c);
+    if (!c || !canUserAccessContract(c, currentUser)) return;
     for (const t of (c.types || [])) {
       const k = 'start_' + slug(t), val = fd.get(k) || '';
       if (val && effDate && val < effDate) { toast(`O ${t.toLowerCase()} só pode ocorrer após a eficácia (${BR(effDate)}).`, 'error'); return; }
@@ -1844,6 +1968,7 @@ document.addEventListener('submit', async e => {
 
   if (form.id === 'aditivo-form') {
     const c = contracts.find(x => x.id === form.dataset.cid), fd = new FormData(form), ob = parseObligationsFromForm(fd, eff(c));
+    if (!c || !canUserAccessContract(c, currentUser)) return;
     if (!ob) return;
     const n = (c.amendments || []).length + 1;
     const ds = c.deadlines.map(d => {
@@ -1862,6 +1987,7 @@ document.addEventListener('submit', async e => {
 
   if (form.id === 'manage-deadlines-form') {
     const c = contracts.find(x => x.id === form.dataset.cid), fd = new FormData(form);
+    if (!c || !canUserAccessContract(c, currentUser)) return;
     c.deadlines = c.deadlines.map((d, idx) => {
       const isAct = fd.has(`act_${idx}`), isDone = fd.has(`done_${idx}`), newDue = fd.get(`due_${idx}`) || d.due;
       const ext = (newDue && newDue !== d.due) ? [...(d.ext || []), { from: d.due, to: newDue, ad: 0 }] : (d.ext || []);
@@ -1878,10 +2004,20 @@ $('#import-file').addEventListener('change', ev => {
     try {
       const data = JSON.parse(reader.result);
       if (Array.isArray(data)) {
-        contracts = data;
+        const imported = data.map(item => ({
+          ...item,
+          ownerId: item.ownerId || currentUser.id,
+          ownerName: item.ownerName || currentUser.name,
+          ownerEmail: item.ownerEmail || currentUser.email || currentUser.login
+        }));
+        for (const item of imported) {
+          const idx = contracts.findIndex(x => x.id === item.id);
+          if (idx >= 0) contracts[idx] = item;
+          else contracts.unshift(item);
+          await sbUpsertRow(item.id, item);
+        }
         saveContractsToStorage();
-        for (const c of contracts) await sbUpsertRow(c.id, c);
-        toast(`${data.length} contratos importados e enviados ao Supabase!`);
+        toast(`${imported.length} contratos importados e vinculados!`);
         render();
       }
       else toast('Formato JSON inválido.', 'error');
