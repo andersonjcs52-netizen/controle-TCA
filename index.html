@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+<title>Controle de Prazos TCA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --tx: #1b261e;
+    --mu: #63564c;
+    --bd: #dfd8ce;
+    --pr: #1f6b3a;
+    --pr-hover: #164f2a;
+    --ac: #e5f3e9;
+    --br: #6d4c3d;
+    --br-hover: #563a2e;
+    --br-light: #f2eae4;
+    --wa: #d97706;
+    --wa-bg: #fef3c7;
+    --da: #c0392b;
+    --da-bg: #fde8e8;
+    --ok: #15803d;
+    --ok-bg: #dcfce7;
+  }
+  [data-theme="dark"] {
+    --bg: #111612;
+    --card: #1a221c;
+    --tx: #eceae4;
+    --mu: #a89f96;
+    --bd: #2c382f;
+    --pr: #3ca862;
+    --pr-hover: #2f8a4e;
+    --ac: #1d3324;
+    --br: #a67c68;
+    --br-hover: #8c6552;
+    --br-light: #2a211d;
+    --wa: #f59e0b;
+    --wa-bg: #3b2a0d;
+    --da: #ef4444;
+    --da-bg: #3b1515;
+    --ok: #22c55e;
+    --ok-bg: #143320;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--tx);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-x: hidden;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--bd);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    margin-bottom: 12px;
+  }
+  @media(min-width: 640px) { .card { padding: 18px; margin-bottom: 16px; } }
+
+  .btn {
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--bd);
+    background: var(--card);
+    color: var(--tx);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    user-select: none;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--br-light); border-color: var(--br); }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--pr); color: #ffffff; border-color: var(--pr); }
+  .btn-primary:hover { background: var(--pr-hover); border-color: var(--pr-hover); color: #ffffff; }
+  .btn-brown { background: var(--br); color: #ffffff; border-color: var(--br); }
+  .btn-brown:hover { background: var(--br-hover); border-color: var(--br-hover); color: #ffffff; }
+  .btn-danger { color: var(--da); border-color: var(--da-bg); background: var(--da-bg); }
+  .btn-danger:hover { background: var(--da); color: #ffffff; border-color: var(--da); }
+  .btn-sm { padding: 6px 10px; font-size: 12px; border-radius: 7px; }
+
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    font: inherit;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--bd);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--tx);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--pr);
+    box-shadow: 0 0 0 2px var(--ac);
+  }
+  label.field-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--mu);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--br-light);
+    color: var(--br);
+    white-space: nowrap;
+  }
+  .tag.d { background: var(--da-bg); color: var(--da); }
+  .tag.w { background: var(--wa-bg); color: var(--wa); }
+  .tag.ok { background: var(--ok-bg); color: var(--ok); }
+  .bar { height: 7px; background: var(--bd); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--pr), #2e8b4e); transition: width 0.3s ease; }
+
+  .check-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--bd);
+    border-radius: 10px;
+    background: var(--card);
+    transition: all 0.15s ease;
+  }
+  .check-card:hover { border-color: var(--br); }
+  .check-card.active { border-color: var(--pr); background: var(--ac); }
+  .check-card input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: var(--pr);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Cartão de Linha Totalmente Responsivo (Mobile & Desktop) */
+  .row-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 13px 14px;
+    border: 1px solid var(--bd);
+    border-radius: 10px;
+    background: var(--card);
+    transition: all 0.15s ease;
+  }
+  @media(min-width: 680px) {
+    .row-card {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+  }
+  .row-card:hover { border-color: var(--pr); background: var(--ac); }
+
+  .row-card-main {
+    min-width: 0;
+    flex: 1;
+    width: 100%;
+    word-break: break-word;
+  }
+  .row-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px dashed var(--bd);
+    flex-wrap: wrap;
+  }
+  @media(min-width: 680px) {
+    .row-card-actions {
+      width: auto;
+      padding-top: 0;
+      border-top: none;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+  }
+
+  #toast-container {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 380px;
+    margin: 0 auto;
+  }
+  @media(min-width: 640px) { #toast-container { left: auto; } }
+
+  .toast {
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--tx);
+    border: 1px solid var(--bd);
+    border-left: 5px solid var(--pr);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .toast.error { border-left-color: var(--da); }
+  .toast.warn { border-left-color: var(--wa); }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.62);
+    backdrop-filter: blur(2px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+  .modal-box {
+    background: var(--card);
+    border: 1px solid var(--bd);
+    border-radius: 14px;
+    max-width: 780px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 18px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.3);
+  }
+  @media(min-width: 640px) { .modal-box { padding: 22px; } }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid var(--bd); text-align: left; vertical-align: middle; }
+  th { font-size: 11px; text-transform: uppercase; color: var(--mu); font-weight: 700; background: var(--br-light); }
+</style>
+</head>
+<body>
+
+<!-- Cabeçalho Institucional (Oculto na tela de Login) -->
+<header id="main-header" style="display: none; background: linear-gradient(135deg, #1b5e32 0%, #2d4c36 55%, #5c3f2e 100%); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
+  <div style="max-width: 1140px; margin: 0 auto; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" data-action="nav" data-view="painel">
+      <div style="width: 36px; height: 36px; border-radius: 9px; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">🌳</div>
+      <div>
+        <h1 style="font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.01em;">Controle de Prazos TCA</h1>
+        <div style="font-size: 11px; opacity: 0.85;">Gestão de Termos de Compromisso Ambiental · SVMA / SEI</div>
+      </div>
+    </div>
+    <nav id="nav" style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center; width: 100%; justify-content: flex-start;"></nav>
+  </div>
+</header>
+
+<!-- Área Principal -->
+<main id="app" style="max-width: 1140px; margin: 0 auto; padding: 14px 12px;"></main>
+
+<!-- Modais, Toasts e Importação -->
+<div id="modal-root"></div>
+<div id="toast-container"></div>
+<input type="file" id="import-file" accept=".json" style="display:none">
+
+<script>
+/* =========================================================================
+   1. ESTADO E ARMAZENAMENTO SEGURO
+   ========================================================================= */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+let currentView = 'painel';
+let currentContractId = null;
+let editingDeadlineIdx = null;
+let deleteArmedId = null;
+let searchQuery = '';
+let statusFilter = 'all';
+
+const memoryStore = {};
+function storageGet(key) {
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null ? val : (memoryStore[key] || null);
+  } catch (e) { return memoryStore[key] || null; }
+}
+function storageSet(key, val) {
+  memoryStore[key] = val;
+  try { localStorage.setItem(key, val); } catch (e) {}
+}
+function storageRemove(key) {
+  delete memoryStore[key];
+  try { localStorage.removeItem(key); } catch (e) {}
+}
+
+const P = s => s ? new Date(s + 'T00:00:00') : null;
+const ISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const BR = s => s ? P(s).toLocaleDateString('pt-BR') : '—';
+const today = () => ISO(new Date());
+const addD = (s, n) => { const d = P(s); d.setDate(d.getDate() + n); return ISO(d); };
+const addM = (s, n) => {
+  const d = P(s), day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  return ISO(d);
+};
+const diff = s => Math.round((P(s) - P(today())) / 864e5);
+
+const TYPES = ['Corte', 'Remoção', 'Transplante'];
+const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function toast(msg, type = 'success') {
+  const box = $('#toast-container');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${esc(msg)}</span><button type="button" data-action="close-toast" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:bold;padding:2px 6px;">✕</button>`;
+  box.appendChild(el);
+  setTimeout(() => { if (el.parentElement) el.remove(); }, 4000);
+}
+
+const STORAGE_CONTRACTS = 'tca_contracts_v6';
+const STORAGE_USERS = 'tca_users_v6';
+const STORAGE_SESSION = 'tca_session_v6';
+const STORAGE_THEME = 'tca_theme_v6';
+
+const ADMIN_LOGIN = 'AdminSistema';
+const ADMIN_PASS = 'Senha200#';
+
+let contracts = [];
+let users = [];
+let currentUser = null;
+
+const isAdminUser = u => u && (u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+
+/* =========================================================================
+   2. REGRAS DE NEGÓCIO DO TCA
+   ========================================================================= */
+const isPermitIssued = c => c.effType === 'alvara' && (c.permitIssued !== undefined ? !!c.permitIssued : !!c.permitDate);
+const eff = c => {
+  if (c.effType === 'alvara') {
+    return isPermitIssued(c) ? (c.permitDate || '') : '';
+  }
+  return c.extractDate || '';
+};
+const act = c => (c.deadlines || []).filter(d => d.active !== false);
+const progress = c => {
+  const a = act(c);
+  return a.length ? Math.round(a.filter(d => d.done).length / a.length * 100) : 0;
+};
+const overdue = d => !d.done && d.active !== false && d.due && diff(d.due) < 0;
+const dueSoon = d => !d.done && d.active !== false && d.due && diff(d.due) >= 0 && diff(d.due) <= 15;
+
+function build(c) {
+  const extDate = c.extractDate || '';
+  const effDate = eff(c);
+  if (!extDate && !effDate) return [];
+
+  const L = [];
+  // 1. Indicação do responsável sempre conta do extrato do TCA (30 dias)
+  if (extDate) {
+    L.push(['resp', 'Indicação do responsável pelo acompanhamento', `30 dias a partir da publicação do extrato do TCA (${BR(extDate)})`, addD(extDate, 30)]);
+  }
+  // 2. Entrega do alvará (30 dias após sua emissão)
+  if (c.effType === 'alvara') {
+    if (isPermitIssued(c) && c.permitDate) {
+      L.push(['alvara', 'Entrega do alvará apostilado com nº do TCA', `Até 30 dias após a emissão do alvará (${BR(c.permitDate)})`, addD(c.permitDate, 30)]);
+    } else {
+      L.push(['alvara', 'Entrega do alvará apostilado com nº do TCA', 'Aguardando emissão do alvará (prazo de 30 dias após sua emissão)', '']);
+    }
+  }
+
+  // 3. Prazos contados da eficácia
+  if (effDate) {
+    const man = c.types || [];
+    if (man.length) {
+      L.push(['manejo', 'Prazo autorizado para manejo (' + man.join(', ') + ')', `12 meses a partir da eficácia do TCA (${BR(effDate)})`, addM(effDate, 12)]);
+    }
+    for (const t of man) {
+      const userStart = c['start_' + slug(t)];
+      const n = t.toLowerCase();
+      if (userStart) {
+        L.push([slug(t) + '-ini', 'Informar o início do ' + n, `Até 10 dias antes da realização (previsto: ${BR(userStart)})`, addD(userStart, -10)]);
+        L.push([slug(t) + '-fim', 'Informar o término do ' + n, `Até 20 dias depois da realização (previsto: ${BR(userStart)})`, addD(userStart, 20)]);
+      } else {
+        L.push([slug(t) + '-ini', 'Informar o início do ' + n, `Até 10 dias antes (aguardando informação da realização)`, '']);
+        L.push([slug(t) + '-fim', 'Informar o término do ' + n, `Até 20 dias depois (aguardando informação da realização)`, '']);
+      }
+    }
+    if (c.plantOn) {
+      const ps = c.plantStart || '';
+      const obraInfo = c.obraEnd ? ` · Fim da obra previsto: ${BR(c.obraEnd)}` : ' · Prazo: até o final da obra';
+      if (ps) {
+        L.push(['plantio-ini', 'Informar o início do plantio', `Até 10 dias antes (previsto: ${BR(ps)}${obraInfo})`, addD(ps, -10)]);
+        L.push(['plantio-fim', 'Informar o término do plantio', `Até 20 dias depois (previsto: ${BR(ps)}${obraInfo})`, addD(ps, 20)]);
+      } else {
+        L.push(['plantio-ini', 'Informar o início do plantio', `Até 10 dias antes (aguardando informação da realização${obraInfo})`, '']);
+        L.push(['plantio-fim', 'Informar o término do plantio', `Até 20 dias depois (aguardando informação da realização${obraInfo})`, '']);
+      }
+    }
+    if (c.convV || c.conv === 'viveiro') {
+      L.push(['agend', 'Agendar entrega de mudas no viveiro', `Até 30 dias após a eficácia (${BR(effDate)})`, addD(effDate, 30)]);
+      L.push(['entrega', 'Entrega de mudas no viveiro', `Até 6 meses após a eficácia (${BR(effDate)})`, addM(effDate, 6)]);
+    }
+    if (c.convF || c.conv === 'fema') {
+      L.push(['fema', 'Depósito no FEMA', `Até 6 meses após a eficácia (${BR(effDate)})`, addM(effDate, 6)]);
+    }
+  }
+
+  const oldMap = Object.fromEntries((c.deadlines || []).map(d => [d.k, d]));
+  const built = L.map(([k, name, desc, due]) => {
+    const o = oldMap[k];
+    const ext = o?.ext || [];
+    return { k, name, desc, due: ext.length ? o.due : due, ext, done: !!o?.done, doneDate: o?.doneDate || null, active: o ? o.active !== false : true };
+  });
+  const customDeadlines = (c.deadlines || []).filter(d => d.k && d.k.startsWith('custom_'));
+  return [...built, ...customDeadlines];
+}
+
+function seedInitialData() {
+  const savedUsers = storageGet(STORAGE_USERS);
+  if (savedUsers) {
+    try { users = JSON.parse(savedUsers); } catch (e) { users = []; }
+  }
+  if (!Array.isArray(users)) users = [];
+
+  // Garante que o administrador configurado exista sempre
+  const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+  const adminObj = {
+    id: 'usr_admin_master',
+    name: 'Administrador do Sistema',
+    login: ADMIN_LOGIN,
+    email: ADMIN_LOGIN,
+    role: 'Administrador',
+    pass: ADMIN_PASS,
+    isAdmin: true,
+    mustChangePass: false,
+    createdAt: today()
+  };
+  if (adminIdx >= 0) {
+    users[adminIdx] = { ...users[adminIdx], login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
+  } else {
+    users.unshift(adminObj);
+  }
+  storageSet(STORAGE_USERS, JSON.stringify(users));
+
+  const savedContracts = storageGet(STORAGE_CONTRACTS);
+  if (savedContracts) {
+    try { contracts = JSON.parse(savedContracts); } catch (e) { contracts = []; }
+  }
+  if (!Array.isArray(contracts) || !contracts.length) {
+    const c1 = {
+      id: 'tca_demo_1',
+      client: 'Incorporadora Parque Aliança S.A.',
+      address: 'Rua Vergueiro, 3100 - Vila Mariana, São Paulo/SP',
+      sei: '6027.2026/0005678-9',
+      tca: '198/2026',
+      responsible: 'Biól. Fernanda Costa (CRBio 44210)',
+      effType: 'alvara',
+      permitIssued: true,
+      extractDate: addD(today(), -40),
+      permitDate: addD(today(), -18),
+      types: ['Corte', 'Transplante'],
+      start_corte: addD(today(), 14),
+      start_remocao: '',
+      start_transplante: '',
+      plantOn: true,
+      plantStart: '',
+      obraEnd: addM(today(), 14),
+      convV: true,
+      convF: true,
+      created: addD(today(), -40),
+      doneAll: false,
+      amendments: [{
+        n: 1,
+        date: addD(today(), -5),
+        note: 'Aditivo 01: Inclusão de conversão mista (Viveiro + FEMA)',
+        sum: ['+ FEMA', '1 prazo prorrogado']
+      }]
+    };
+    c1.deadlines = build(c1);
+    c1.deadlines[0].done = true;
+    c1.deadlines[0].doneDate = addD(today(), -15);
+
+    const c2 = {
+      id: 'tca_demo_2',
+      client: 'Construtora Horizonte Paulista Ltda.',
+      address: 'Av. Paulista, 1850 - Bela Vista, São Paulo/SP',
+      sei: '6027.2026/0001234-5',
+      tca: '142/2026',
+      responsible: 'Eng. Agr. Marcos Oliveira (CREA 506812)',
+      effType: 'extrato',
+      extractDate: addD(today(), -26),
+      permitDate: '',
+      types: ['Corte', 'Remoção'],
+      start_corte: '',
+      start_remocao: '',
+      start_transplante: '',
+      plantOn: true,
+      plantStart: '',
+      obraEnd: addM(today(), 10),
+      convV: true,
+      convF: false,
+      created: addD(today(), -26),
+      doneAll: false,
+      amendments: []
+    };
+    c2.deadlines = build(c2);
+
+    contracts = [c1, c2];
+    storageSet(STORAGE_CONTRACTS, JSON.stringify(contracts));
+  }
+
+  // Inicia sempre deslogado ou recupera sessão válida apenas se já autenticada nesta chave
+  const sess = storageGet(STORAGE_SESSION);
+  if (sess) {
+    try { currentUser = JSON.parse(sess); } catch (e) { currentUser = null; }
+  }
+
+  const th = storageGet(STORAGE_THEME);
+  if (th === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+}
+
+function saveContractsToStorage() {
+  storageSet(STORAGE_CONTRACTS, JSON.stringify(contracts));
+}
+function saveContract(c) {
+  const idx = contracts.findIndex(x => x.id === c.id);
+  if (idx >= 0) contracts[idx] = c;
+  else contracts.unshift(c);
+  saveContractsToStorage();
+}
+
+function navigateTo(view, contractId = null) {
+  currentView = view;
+  if (contractId !== null) currentContractId = contractId;
+  editingDeadlineIdx = null;
+  deleteArmedId = null;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* =========================================================================
+   3. CABEÇALHO E ETIQUETAS DE STATUS
+   ========================================================================= */
+function renderHeader() {
+  const hdr = $('#main-header');
+  if (!currentUser || currentUser.mustChangePass) {
+    hdr.style.display = 'none';
+    return;
+  }
+  hdr.style.display = 'block';
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const navItems = [
+    ['painel', '📊 Painel'],
+    ['contratos', `📁 Contratos (${contracts.length})`],
+    ['novo', '➕ Novo']
+  ];
+  if (isAdminUser(currentUser)) {
+    navItems.push(['usuarios', '👤 Usuários']);
+  }
+
+  $('#nav').innerHTML = navItems.map(([k, label]) => {
+    const isActive = currentView === k || (k === 'contratos' && ['contrato', 'editar', 'aditivo'].includes(currentView));
+    return `<button type="button" data-action="nav" data-view="${k}" style="color:#fff;border:1px solid ${isActive ? 'rgba(255,255,255,0.45)' : 'transparent'};padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;background:${isActive ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)'};">${label}</button>`;
+  }).join('') + `
+    <button type="button" data-action="toggle-theme" title="Alternar Tema" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:6px 9px;border-radius:8px;cursor:pointer;font-size:13px;">${isDark ? '☀️' : '🌙'}</button>
+    <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.25);padding:4px 9px;border-radius:8px;font-size:12px;margin-left:auto;">
+      <span>👤 ${esc((currentUser?.name || currentUser?.login || 'Usuário').split(' ')[0])}</span>
+      <button type="button" data-action="logout" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Sair</button>
+    </div>
+  `;
+}
+
+function tagFor(d) {
+  if (d.done) return '<span class="tag ok">✓ Concluído</span>';
+  if (!d.due) {
+    if (d.k === 'alvara') return '<span class="tag w">⏳ Aguardando emissão do alvará</span>';
+    return '<span class="tag w">⏳ Aguardando informação da realização</span>';
+  }
+  const n = diff(d.due);
+  if (n < 0) return `<span class="tag d">⚠ Atrasado ${-n}d</span>`;
+  if (n === 0) return '<span class="tag w">⏰ Vence Hoje</span>';
+  if (n <= 15) return `<span class="tag w">⏳ Próximo (${n}d)</span>`;
+  return `<span class="tag ok">No prazo (${n}d)</span>`;
+}
+
+/* =========================================================================
+   4. TELA INICIAL DE LOGIN E TROCA DE SENHA NO PRIMEIRO ACESSO
+   ========================================================================= */
+function viewLogin() {
+  // Se o usuário logou com senha temporária, exibe a tela obrigatória de redefinição
+  if (currentUser && currentUser.mustChangePass) {
+    return `
+      <div style="min-height: 82vh; display: flex; align-items: center; justify-content: center; padding: 14px;">
+        <div class="card" style="max-width: 420px; width: 100%; padding: 26px 22px; border-top: 5px solid var(--br);">
+          <div style="text-align: center; margin-bottom: 18px;">
+            <div style="width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, #1f6b3a, #6d4c3d); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 10px;">🔑</div>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700;">Definir Nova Senha</h2>
+            <p style="margin: 6px 0 0; color: var(--mu); font-size: 13px;">
+              Olá, <b>${esc(currentUser.name)}</b>. Como este é o seu primeiro acesso, escolha uma nova senha pessoal para substituir a senha temporária.
+            </p>
+          </div>
+
+          <form id="change-temp-pass-form" style="display: flex; flex-direction: column; gap: 13px;">
+            <div>
+              <label class="field-label">Nova Senha *</label>
+              <input type="password" name="newPass" placeholder="Digite sua nova senha" minlength="4" required autocomplete="new-password">
+            </div>
+            <div>
+              <label class="field-label">Confirmar Nova Senha *</label>
+              <input type="password" name="confirmPass" placeholder="Repita a nova senha" minlength="4" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary" style="padding: 11px; margin-top: 4px; font-size: 14px;">
+              💾 Salvar Nova Senha e Acessar
+            </button>
+            <button type="button" class="btn btn-sm" data-action="logout">Cancelar e Voltar ao Login</button>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div style="min-height: 84vh; display: flex; align-items: center; justify-content: center; padding: 14px;">
+      <div class="card" style="max-width: 410px; width: 100%; padding: 28px 22px; border-top: 5px solid var(--pr); box-shadow: 0 12px 32px rgba(0,0,0,0.08);">
+        <div style="text-align: center; margin-bottom: 22px;">
+          <div style="width: 54px; height: 54px; border-radius: 14px; background: linear-gradient(135deg, #1b5e32 0%, #5c3f2e 100%); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(31,107,58,0.25);">🌳</div>
+          <h2 style="margin: 0; font-size: 21px; font-weight: 700;">Controle de Prazos TCA</h2>
+          <p style="margin: 4px 0 0; color: var(--mu); font-size: 13px;">
+            Gestão de Termos de Compromisso Ambiental
+          </p>
+        </div>
+
+        <form id="login-form" style="display: flex; flex-direction: column; gap: 14px;" autocomplete="off">
+          <div>
+            <label class="field-label">Usuário ou E-mail</label>
+            <input type="text" name="identity" placeholder="Digite seu usuário ou e-mail" required autocomplete="off">
+          </div>
+          <div>
+            <label class="field-label">Senha</label>
+            <input type="password" name="pass" placeholder="Digite sua senha" required autocomplete="off">
+          </div>
+          <button type="submit" class="btn btn-primary" style="padding: 11px; margin-top: 4px; font-size: 14px; width: 100%;">
+            Entrar no Sistema
+          </button>
+        </form>
+
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--bd); text-align: center; font-size: 12px; color: var(--mu);">
+          Acesso restrito a usuários autorizados. Novas contas são cadastradas exclusivamente pelo Administrador.
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================================================================
+   5. GESTÃO DE USUÁRIOS (EXCLUSIVO PARA ADMINISTRADOR)
+   ========================================================================= */
+function viewUsuarios() {
+  const isAdmin = isAdminUser(currentUser);
+
+  return `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+      <div>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">👤 Gestão de Contas de Usuários</h2>
+        <div style="color: var(--mu); font-size: 13px;">Cadastre o e-mail e a senha temporária para novos usuários (eles alterarão a senha no 1º acesso)</div>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm" data-action="nav" data-view="painel">← Voltar ao Painel</button>
+      </div>
+    </div>
+
+    ${isAdmin ? `
+      <div style="display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+        <div class="card" style="border-top: 4px solid var(--pr);">
+          <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--pr);">➕ Cadastrar Novo Usuário</h3>
+          <form id="admin-add-user-form" style="display: flex; flex-direction: column; gap: 11px;" autocomplete="off">
+            <div>
+              <label class="field-label">Nome Completo *</label>
+              <input type="text" name="name" placeholder="Ex: Ana Paula Silva" required>
+            </div>
+            <div>
+              <label class="field-label">E-mail ou Login de Acesso *</label>
+              <input type="text" name="email" placeholder="anapaula@prefeitura.sp.gov.br" required>
+            </div>
+            <div>
+              <label class="field-label">Setor / Cargo</label>
+              <input type="text" name="role" placeholder="Ex: Analista Ambiental - SVMA">
+            </div>
+            <div>
+              <label class="field-label">Senha Inicial Temporária *</label>
+              <input type="text" name="pass" placeholder="Defina uma senha provisória" required>
+              <div style="font-size: 11.5px; color: var(--mu); margin-top: 3px;">
+                No primeiro login com esta senha, o sistema exigirá que o usuário cadastre sua senha definitiva.
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 4px;">💾 Criar Conta de Usuário</button>
+          </form>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--br);">
+          <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: var(--br);">👥 Contas Cadastradas (${users.length})</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${users.map(u => `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); gap: 8px; flex-wrap: wrap;">
+                <div style="min-width: 0; flex: 1;">
+                  <div style="font-weight: 700; font-size: 13.5px;">
+                    ${esc(u.name)}
+                    ${currentUser.id === u.id ? '<span class="tag ok" style="margin-left:4px;">Você</span>' : ''}
+                  </div>
+                  <div style="font-size: 12px; color: var(--mu);">
+                    ${esc(u.isAdmin ? 'Conta Administrador' : (u.email || u.login))} · ${esc(u.role || 'Técnico')}
+                    ${u.mustChangePass ? ' · <span style="color:var(--wa);font-weight:600;">Aguardando troca de senha</span>' : ''}
+                  </div>
+                </div>
+                ${!u.isAdmin ? `
+                  <button type="button" class="btn btn-sm btn-danger" data-action="del-user" data-id="${u.id}">Remover</button>
+                ` : '<span class="tag">Admin</span>'}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    ` : `
+      <div class="card" style="text-align: center; padding: 28px;">
+        <div style="font-size: 28px; margin-bottom: 8px;">🔒</div>
+        <div style="font-weight: 700; font-size: 15px;">Acesso Restrito ao Administrador</div>
+        <div style="color: var(--mu); font-size: 13px; margin: 4px 0 14px;">
+          Somente o Administrador do Sistema pode cadastrar ou remover contas de usuários.
+        </div>
+      </div>
+    `}
+  `;
+}
+
+/* =========================================================================
+   6. PAINEL / DASHBOARD RESPONSIVO (MOBILE & DESKTOP)
+   ========================================================================= */
+function viewPainel() {
+  const safeContracts = Array.isArray(contracts) ? contracts : [];
+  const open = safeContracts.filter(c => !c.doneAll);
+  const all = open.flatMap(c => (c.deadlines || []).map(d => ({ c, d }))).filter(x => !x.d.done && x.d.active !== false && x.d.due);
+
+  const lateList = all.filter(x => diff(x.d.due) < 0);
+  const soonList = all.filter(x => { const n = diff(x.d.due); return n >= 0 && n <= 15; });
+  const onTimeList = all.filter(x => diff(x.d.due) > 15);
+  const avg = safeContracts.length ? Math.round(safeContracts.reduce((s, c) => s + progress(c), 0) / safeContracts.length) : 0;
+  const next = all.sort((a, b) => a.d.due.localeCompare(b.d.due)).slice(0, 14);
+
+  return `
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+      <div>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">Painel Geral · Controle de Prazos TCA</h2>
+        <div style="color: var(--mu); font-size: 12.5px;">Eficácia, alvará, manejos, plantio até o fim da obra, Viveiro, FEMA e Aditivos</div>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        ${isAdminUser(currentUser) ? `<button type="button" class="btn btn-sm btn-brown" data-action="nav" data-view="usuarios">👤 Cadastrar Novo Usuário</button>` : ''}
+        <button type="button" class="btn btn-sm btn-primary" data-action="nav" data-view="novo">➕ Novo Contrato</button>
+      </div>
+    </div>
+
+    ${(lateList.length > 0 || soonList.length > 0) ? `
+      <div style="background: var(--br-light); border: 1px solid var(--br); border-left: 5px solid ${lateList.length ? 'var(--da)' : 'var(--wa)'}; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <strong>🔔 Alertas de Vencimento:</strong>
+          <span style="color: var(--mu); margin-left: 4px;">
+            <b style="color:var(--da)">${lateList.length} atrasado(s)</b> e <b style="color:var(--wa)">${soonList.length} vencendo em até 15 dias</b>.
+          </span>
+        </div>
+        <button type="button" class="btn btn-sm" data-action="nav" data-view="contratos">Ver Contratos →</button>
+      </div>
+    ` : ''}
+
+    <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 14px;">
+      <div class="card" style="border-top: 4px solid var(--pr); margin:0;">
+        <div style="color: var(--mu); font-size: 11px; font-weight: 700;">CONTRATOS ATIVOS</div>
+        <div style="font-size: 24px; font-weight: 700; margin: 3px 0;">${open.length}</div>
+        <div style="color: var(--mu); font-size: 11.5px;">Média: ${avg}% concluído</div>
+      </div>
+      <div class="card" style="border-top: 4px solid var(--ok); margin:0;">
+        <div style="color: var(--mu); font-size: 11px; font-weight: 700;">NO PRAZO (>15d)</div>
+        <div style="font-size: 24px; font-weight: 700; color: var(--ok); margin: 3px 0;">${onTimeList.length}</div>
+        <div style="color: var(--mu); font-size: 11.5px;">obrigações em dia</div>
+      </div>
+      <div class="card" style="border-top: 4px solid var(--wa); margin:0;">
+        <div style="color: var(--mu); font-size: 11px; font-weight: 700;">PRÓXIMOS (15d)</div>
+        <div style="font-size: 24px; font-weight: 700; color: var(--wa); margin: 3px 0;">${soonList.length}</div>
+        <div style="color: var(--mu); font-size: 11.5px;">exigem atenção</div>
+      </div>
+      <div class="card" style="border-top: 4px solid var(--da); margin:0;">
+        <div style="color: var(--mu); font-size: 11px; font-weight: 700;">ATRASADOS</div>
+        <div style="font-size: 24px; font-weight: 700; color: var(--da); margin: 3px 0;">${lateList.length}</div>
+        <div style="color: var(--mu); font-size: 11.5px;">providência imediata</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <strong style="font-size: 15px;">📅 Próximos Vencimentos (Com Data Definida)</strong>
+          <div style="font-size: 12px; color: var(--mu);">Toque no contrato para gerenciar prazos, alvará ou aditivos</div>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-sm" data-action="export-json">⬇ Exportar Backup JSON</button>
+          <button type="button" class="btn btn-sm" data-action="trigger-import">⬆ Importar JSON</button>
+        </div>
+      </div>
+
+      ${next.length ? `<div style="display: flex; flex-direction: column; gap: 10px;">` + next.map(({ c, d }) => {
+        const dIdx = c.deadlines.findIndex(x => x.k === d.k);
+        return `
+          <div class="row-card">
+            <div class="row-card-main" style="cursor: pointer;" data-action="open-contract" data-id="${c.id}">
+              <div style="font-weight: 700; font-size: 14.5px; color: var(--tx); margin-bottom: 3px;">${esc(d.name)}</div>
+              <div style="color: var(--mu); font-size: 12.5px; line-height: 1.4;">
+                <b style="color: var(--tx);">${esc(c.client)}</b>
+                ${c.tca ? ` · TCA ${esc(c.tca)}` : ''}
+                ${c.sei ? ` · SEI ${esc(c.sei)}` : ''}
+                <br>📍 ${esc(c.address)}
+              </div>
+            </div>
+            <div class="row-card-actions">
+              <div>
+                <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 2px;">${BR(d.due)}</div>
+                ${tagFor(d)}
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-sm btn-primary" data-action="quick-done" data-cid="${c.id}" data-idx="${dIdx}">✓ Concluir</button>
+                <button type="button" class="btn btn-sm" data-action="open-contract" data-id="${c.id}">Abrir →</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('') + `</div>` : `<div style="padding: 24px; text-align: center; color: var(--mu);">🎉 Nenhum prazo com data definida está pendente!</div>`}
+    </div>
+  `;
+}
+
+/* =========================================================================
+   7. LISTA DE CONTRATOS RESPONSIVA
+   ========================================================================= */
+function viewLista() {
+  const q = (searchQuery || '').toLowerCase();
+  const filtered = contracts.filter(c => {
+    const matchText = [c.client, c.address, c.sei, c.tca, c.responsible].join(' ').toLowerCase().includes(q);
+    if (!matchText) return false;
+    if (statusFilter === 'late') return c.deadlines.some(overdue) && !c.doneAll;
+    if (statusFilter === 'open') return !c.doneAll;
+    if (statusFilter === 'done') return !!c.doneAll;
+    return true;
+  }).sort((a, b) => a.client.localeCompare(b.client));
+
+  return `
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+      <div>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">📁 Contratos TCA Cadastrados</h2>
+        <div style="color: var(--mu); font-size: 12.5px;">Gerenciamento completo dos compromissos ambientais</div>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-sm" data-action="export-json">⬇ Backup JSON</button>
+        <button type="button" class="btn btn-sm" data-action="trigger-import">⬆ Importar</button>
+        <button type="button" class="btn btn-sm btn-primary" data-action="nav" data-view="novo">➕ Novo Contrato</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <input id="search-input" placeholder="🔍 Buscar por cliente, endereço, SEI, nº TCA ou responsável…" value="${esc(searchQuery)}">
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        ${[['all', 'Todos'], ['open', 'Ativos'], ['late', 'Com Atraso'], ['done', 'Concluídos']].map(([k, label]) => `
+          <button type="button" class="btn btn-sm ${statusFilter === k ? 'btn-brown' : ''}" data-action="set-filter" data-filter="${k}" style="flex:1;">${label}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    ${filtered.length ? `<div style="display: flex; flex-direction: column; gap: 10px;">` + filtered.map(c => {
+      const nLate = c.deadlines.filter(overdue).length;
+      const nSoon = c.deadlines.filter(dueSoon).length;
+      const prog = progress(c);
+      return `
+        <div class="row-card" style="cursor: pointer;" data-action="open-contract" data-id="${c.id}">
+          <div class="row-card-main">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;">
+              <strong style="font-size: 15px;">${esc(c.client)}</strong>
+              ${c.tca ? `<span class="tag">TCA ${esc(c.tca)}</span>` : ''}
+              ${c.sei ? `<span class="tag" style="background:var(--ac);color:var(--pr);">SEI ${esc(c.sei)}</span>` : ''}
+            </div>
+            <div style="color: var(--mu); font-size: 12.5px;">
+              📍 ${esc(c.address)} ${c.responsible ? ` · 👷 ${esc(c.responsible)}` : ''}
+            </div>
+            <div style="font-size: 12px; color: var(--mu); margin-top: 4px;">
+              Extrato: <b>${BR(c.extractDate)}</b> · Eficácia: <b>${c.effType === 'alvara' ? (isPermitIssued(c) ? 'Alvará (' + BR(c.permitDate) + ')' : '⏳ Aguardando Alvará') : 'Extrato'}</b>
+            </div>
+          </div>
+          <div class="row-card-actions">
+            <div>
+              ${c.doneAll
+                ? '<span class="tag ok">✓ Contrato Concluído</span>'
+                : nLate
+                  ? `<span class="tag d">⚠ ${nLate} atrasado(s)</span>`
+                  : nSoon
+                    ? `<span class="tag w">⏳ ${nSoon} próximo(s)</span>`
+                    : `<span class="tag ok">${prog}% concluído</span>`
+              }
+            </div>
+            <div style="width: 110px;">
+              <div class="bar"><i style="width:${prog}%"></i></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') + `</div>` : `<div class="card" style="text-align: center; color: var(--mu); padding: 24px;">Nenhum contrato encontrado.</div>`}
+  `;
+}
+
+/* =========================================================================
+   8. DETALHE DO CONTRATO RESPONSIVO
+   ========================================================================= */
+function viewDetalhe(id) {
+  const c = contracts.find(x => x.id === id);
+  if (!c) return `<div class="card">Contrato não encontrado. <button type="button" class="btn btn-sm" data-action="nav" data-view="contratos">Voltar</button></div>`;
+
+  const nLate = c.deadlines.filter(overdue).length;
+  const a = act(c);
+  const nextAdNum = String((c.amendments || []).length + 1).padStart(2, '0');
+  const infoBox = (t, v) => `
+    <div style="padding: 9px 11px; background: var(--bg); border-radius: 8px; border: 1px solid var(--bd);">
+      <div style="font-size: 10.5px; color: var(--mu); text-transform: uppercase; font-weight: 700;">${t}</div>
+      <div style="font-weight: 600; margin-top: 2px; font-size: 13px;">${v || '—'}</div>
+    </div>
+  `;
+
+  return `
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-sm" data-action="nav" data-view="contratos">← Contratos</button>
+        <span class="tag">TCA ${esc(c.tca || 'S/N')}</span>
+        ${c.sei ? `<span class="tag" style="background:var(--ac);color:var(--pr);">SEI ${esc(c.sei)}</span>` : ''}
+        <span class="tag">${c.effType === 'alvara' ? (isPermitIssued(c) ? '📜 Alvará Emitido' : '⏳ Aguardando Alvará') : '📰 Sem Alvará'}</span>
+        ${c.doneAll ? '<span class="tag ok">✓ Finalizado</span>' : ''}
+      </div>
+      <h2 style="margin: 0; font-size: 20px; font-weight: 700;">${esc(c.client)}</h2>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-sm btn-brown" data-action="open-manage-modal" data-id="${c.id}">⚙️ Gerenciar Prazos</button>
+        <button type="button" class="btn btn-sm btn-brown" data-action="nav-aditivo" data-id="${c.id}">📑 + Aditivo ${nextAdNum}</button>
+        <button type="button" class="btn btn-sm btn-primary" data-action="nav-edit" data-id="${c.id}">✏️ Editar</button>
+        <button type="button" class="btn btn-sm" data-action="copy-sei" data-id="${c.id}">📋 Copiar Resumo SEI</button>
+        <button type="button" class="btn btn-sm" data-action="toggle-finish-contract" data-id="${c.id}">${c.doneAll ? '↩ Reabrir' : '✅ Concluir TCA'}</button>
+        <button type="button" class="btn btn-sm btn-danger" data-action="delete-contract" data-id="${c.id}">
+          ${deleteArmedId === c.id ? '⚠️ Confirmar Exclusão' : '🗑️ Excluir'}
+        </button>
+      </div>
+    </div>
+
+    ${c.effType === 'alvara' && !isPermitIssued(c) ? `
+      <div class="card" style="background: var(--wa-bg); border: 1.5px solid var(--wa);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <strong style="font-size: 14px; color: var(--wa);">⏳ Alvará Apostilado ainda não emitido</strong>
+            <div style="font-size: 12.5px; color: var(--tx); margin-top: 2px;">Quando o alvará sair, informe a data abaixo para liberar a eficácia e o prazo de 30 dias para entrega do alvará:</div>
+          </div>
+          <form id="quick-issue-permit-form" data-cid="${c.id}" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%;">
+            <input type="date" name="permitDate" value="${today()}" required style="flex:1; background: var(--card);">
+            <button type="submit" class="btn btn-sm btn-primary">📜 Registrar Emissão do Alvará</button>
+          </form>
+        </div>
+      </div>
+    ` : ''}
+
+    <div class="card">
+      <div style="display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 12px;">
+        ${infoBox('Endereço da Obra', esc(c.address))}
+        ${infoBox('Processo SEI / TCA', `SEI: ${esc(c.sei || '—')} · TCA: ${esc(c.tca || '—')}`)}
+        ${infoBox('Extrato D.O. (Base Resp.)', BR(c.extractDate))}
+        ${infoBox('Eficácia Geral do TCA', c.effType === 'alvara' ? (isPermitIssued(c) ? `Alvará em ${BR(c.permitDate)}` : '⏳ Aguardando alvará') : `Extrato em ${BR(c.extractDate)}`)}
+        ${infoBox('Responsável Técnico', esc(c.responsible || '—'))}
+        ${infoBox('Manejos (12 meses)', (c.types || []).map(t => `${t} (${c['start_' + slug(t)] ? BR(c['start_' + slug(t)]) : 'aguardando'})`).join(' · ') || 'Sem manejo')}
+        ${infoBox('Plantio (Até fim da obra)', c.plantOn ? `${c.plantStart ? BR(c.plantStart) : 'Aguardando realização'}${c.obraEnd ? ' · Fim: ' + BR(c.obraEnd) : ''}` : 'Não previsto')}
+        ${infoBox('Compensação', [(c.convV || c.conv === 'viveiro') && 'Viveiro (30d/6m)', (c.convF || c.conv === 'fema') && 'FEMA (6m)'].filter(Boolean).join(' + ') || 'Não prevista')}
+      </div>
+      <div class="bar"><i style="width:${progress(c)}%"></i></div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--mu); margin-top: 6px; flex-wrap: wrap;">
+        <span><b>${a.filter(d => d.done).length}</b> de <b>${a.length}</b> obrigações concluídas (${progress(c)}%)</span>
+        ${nLate ? `<b style="color:var(--da)">⚠ ${nLate} prazo(s) atrasado(s)</b>` : '<span style="color:var(--ok)">✓ Nenhum prazo em atraso</span>'}
+      </div>
+    </div>
+
+    ${((c.types || []).length > 0 || c.plantOn) ? `
+      <div class="card" style="border-left: 4px solid var(--pr);">
+        <div style="margin-bottom: 8px;">
+          <strong style="font-size: 14px;">📅 Informar Datas de Realização de Manejo e Plantio</strong>
+          <div style="font-size: 12px; color: var(--mu);">Enquanto não preenchida, a obrigação fica como <b>"Aguardando informação da realização"</b> sem gerar atraso:</div>
+        </div>
+        <form id="quick-schedule-form" data-cid="${c.id}" style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end;">
+          ${(c.types || []).map(t => `
+            <div>
+              <label class="field-label">Data de ${t}</label>
+              <input type="date" name="start_${slug(t)}" value="${esc(c['start_' + slug(t)] || '')}">
+            </div>
+          `).join('')}
+          ${c.plantOn ? `
+            <div>
+              <label class="field-label">Data do Plantio</label>
+              <input type="date" name="plantStart" value="${esc(c.plantStart || '')}">
+            </div>
+          ` : ''}
+          <div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">💾 Atualizar Datas</button>
+          </div>
+        </form>
+      </div>
+    ` : ''}
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+        <strong style="font-size: 14.5px;">📑 Histórico de Termos Aditivos</strong>
+        <button type="button" class="btn btn-sm btn-brown" data-action="nav-aditivo" data-id="${c.id}">➕ Novo Aditivo ${nextAdNum}</button>
+      </div>
+      ${(c.amendments || []).length ? `<div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">` + c.amendments.map(a => `
+        <div style="padding: 9px 11px; border: 1px solid var(--bd); border-left: 4px solid var(--br); border-radius: 8px; background: var(--bg); font-size: 12.5px;">
+          <div style="font-weight: 700;">Aditivo ${String(a.n).padStart(2, '0')} · Assinado em ${BR(a.date)}</div>
+          <div style="color: var(--mu); margin-top: 2px;">${esc([...(a.sum || []), a.note].filter(Boolean).join(' · ') || 'Sem observações')}</div>
+        </div>
+      `).join('') + `</div>` : `<div style="font-size: 12px; color: var(--mu); margin-top: 6px;">Nenhum aditivo registrado neste contrato.</div>`}
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 6px;">
+        <strong style="font-size: 15px;">⏳ Cronograma de Prazos do TCA</strong>
+        <button type="button" class="btn btn-sm btn-brown" data-action="open-manage-modal" data-id="${c.id}">⚙️ Ativar / Desativar Prazos</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${c.deadlines.map((d, i) => `
+          <div class="row-card" style="${d.active === false ? 'opacity: 0.45; background: var(--bg);' : ''}">
+            <div class="row-card-main">
+              <div style="font-weight: 700; font-size: 13.5px;">${esc(d.name)}</div>
+              <div style="font-size: 12px; color: var(--mu); margin-top: 2px;">${esc(d.desc)}</div>
+              ${(d.ext || []).map(x => `<div style="font-size: 11px; color: var(--br); margin-top: 2px;">↪ ${x.ad ? 'Aditivo ' + String(x.ad).padStart(2, '0') : 'Ajustado'}: era ${BR(x.from)}</div>`).join('')}
+            </div>
+            <div class="row-card-actions">
+              <div>
+                ${editingDeadlineIdx === i
+                  ? `<input type="date" id="inline-date-input" value="${d.due || ''}" style="width: 140px; padding: 5px 8px;">`
+                  : `<div style="font-weight: 700; font-size: 13px; margin-bottom: 3px;">${d.due ? BR(d.due) : 'Sem data definida'}</div>`
+                }
+                ${d.active === false ? '<span class="tag">Não controlado</span>' : tagFor(d)}
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${editingDeadlineIdx === i
+                  ? `<button type="button" class="btn btn-sm btn-primary" data-action="save-inline-date" data-id="${c.id}" data-idx="${i}">Salvar</button>
+                     <button type="button" class="btn btn-sm" data-action="cancel-inline-date">Cancelar</button>`
+                  : `
+                    ${!d.done && d.active !== false ? `<button type="button" class="btn btn-sm" data-action="start-inline-date" data-idx="${i}">Alterar Data</button>` : ''}
+                    ${d.done
+                      ? `<button type="button" class="btn btn-sm" data-action="undo-deadline" data-id="${c.id}" data-idx="${i}">Desfazer</button>`
+                      : d.active === false ? '' : `<button type="button" class="btn btn-sm btn-primary" data-action="done-deadline" data-id="${c.id}" data-idx="${i}">✓ Concluir</button>`
+                    }
+                  `
+                }
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function openManageDeadlinesModal(contractId) {
+  const c = contracts.find(x => x.id === contractId);
+  if (!c) return;
+  const root = $('#modal-root');
+  root.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 17px; font-weight: 700;">⚙️ Gerenciar Prazos · ${esc(c.client)}</h3>
+          <button type="button" class="btn btn-sm" data-action="close-modal">✕ Fechar</button>
+        </div>
+        <form id="manage-deadlines-form" data-cid="${c.id}">
+          <div style="max-height: 50vh; overflow-y: auto; border: 1px solid var(--bd); border-radius: 8px; margin-bottom: 12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 50px; text-align: center;">Ativo</th>
+                  <th>Prazo</th>
+                  <th style="width: 145px;">Data</th>
+                  <th style="width: 60px; text-align: center;">Concl.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${c.deadlines.map((d, idx) => `
+                  <tr>
+                    <td style="text-align: center;"><input type="checkbox" name="act_${idx}" ${d.active !== false ? 'checked' : ''} style="accent-color:var(--pr);width:16px;height:16px;"></td>
+                    <td><div style="font-weight:600;font-size:13px;">${esc(d.name)}</div></td>
+                    <td><input type="date" name="due_${idx}" value="${d.due || ''}" style="padding:4px 6px;"></td>
+                    <td style="text-align: center;"><input type="checkbox" name="done_${idx}" ${d.done ? 'checked' : ''} style="accent-color:var(--ok);width:16px;height:16px;"></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn" data-action="close-modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">💾 Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================================================================
+   9. FORMULÁRIOS DE CONTRATO E ADITIVO
+   ========================================================================= */
+function renderObligationsSection(c) {
+  const v = k => esc(c?.[k] ?? '');
+  const cv = !!c && !!(c.convV || c.conv === 'viveiro');
+  const cf = !!c && !!(c.convF || c.conv === 'fema');
+  const plOn = c ? (c.plantOn ?? !!c.plantStart) : false;
+
+  return `
+    <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-bottom: 12px;">
+      ${TYPES.map(t => {
+        const s = slug(t);
+        const checked = (c?.types || []).includes(t);
+        return `
+          <div class="check-card ${checked ? 'active' : ''}" id="card-man-${s}">
+            <input type="checkbox" name="types" value="${t}" data-toggle-box="box-man-${s}" data-card-id="card-man-${s}" ${checked ? 'checked' : ''}>
+            <div style="flex: 1; min-width:0;">
+              <div style="font-weight: 700; font-size: 14px;">🌳 ${t}</div>
+              <div style="font-size: 11.5px; color: var(--mu);">Autorizado por 12 meses após eficácia</div>
+              <div id="box-man-${s}" style="display: ${checked ? 'block' : 'none'}; margin-top: 8px;">
+                <label class="field-label">Data de realização (opcional)</label>
+                <input type="date" name="start_${s}" value="${v('start_' + s)}">
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    <div class="check-card ${plOn ? 'active' : ''}" id="card-plantio" style="margin-bottom: 12px;">
+      <input type="checkbox" name="plantOn" data-toggle-box="box-plantio" data-card-id="card-plantio" ${plOn ? 'checked' : ''}>
+      <div style="flex: 1; min-width:0;">
+        <div style="font-weight: 700; font-size: 14px;">🌱 Plantio (Até o final da obra)</div>
+        <div style="font-size: 11.5px; color: var(--mu);">Obrigação de informar 10 dias antes e 20 dias depois</div>
+        <div id="box-plantio" style="display: ${plOn ? 'block' : 'none'}; margin-top: 8px;">
+          <div style="display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+            <div>
+              <label class="field-label">Data de Início do Plantio (Opcional)</label>
+              <input type="date" name="plantStart" value="${v('plantStart')}">
+            </div>
+            <div>
+              <label class="field-label">Previsão de Fim da Obra (Opcional)</label>
+              <input type="date" name="obraEnd" value="${v('obraEnd')}">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));">
+      <div class="check-card ${cv ? 'active' : ''}" id="card-conv-v">
+        <input type="checkbox" name="convV" data-card-id="card-conv-v" ${cv ? 'checked' : ''}>
+        <div>
+          <div style="font-weight: 700; font-size: 13.5px;">🌿 Entrega para Viveiro</div>
+          <div style="font-size: 11.5px; color: var(--mu);">Agendar em 30 dias / Entregar em 6 meses da eficácia</div>
+        </div>
+      </div>
+      <div class="check-card ${cf ? 'active' : ''}" id="card-conv-f">
+        <input type="checkbox" name="convF" data-card-id="card-conv-f" ${cf ? 'checked' : ''}>
+        <div>
+          <div style="font-weight: 700; font-size: 13.5px;">🏦 Depósito no FEMA</div>
+          <div style="font-size: 11.5px; color: var(--mu);">Prazo de 6 meses a partir da eficácia</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function viewForm(id) {
+  const c = id ? contracts.find(x => x.id === id) : null;
+  if (id && !c) return `<div class="card">Contrato não encontrado.</div>`;
+  const v = k => esc(c?.[k] ?? '');
+  const effType = c?.effType || 'extrato';
+  const permitIssued = c ? isPermitIssued(c) : true;
+
+  return `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 700;">${c ? '✏️ Editar Contrato TCA' : '➕ Novo Contrato TCA'}</h2>
+      <button type="button" class="btn btn-sm" data-action="${c ? 'open-contract' : 'nav'}" data-id="${c ? c.id : ''}" data-view="contratos">Cancelar</button>
+    </div>
+
+    <form id="contract-form" data-edit-id="${c ? c.id : ''}" class="card" style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h3 style="margin: 0 0 10px; font-size: 14.5px; font-weight: 700; color: var(--pr); border-bottom: 1px solid var(--bd); padding-bottom: 5px;">1. Identificação do Contrato</h3>
+        <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+          <div><label class="field-label">Cliente / Compromissário *</label><input name="client" value="${v('client')}" required></div>
+          <div><label class="field-label">Endereço da Obra *</label><input name="address" value="${v('address')}" required></div>
+          <div><label class="field-label">Processo SEI</label><input name="sei" value="${v('sei')}"></div>
+          <div><label class="field-label">Nº do TCA</label><input name="tca" value="${v('tca')}"></div>
+          <div><label class="field-label">Responsável pelo Acompanhamento</label><input name="responsible" value="${v('responsible')}"></div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="margin: 0 0 8px; font-size: 14.5px; font-weight: 700; color: var(--br); border-bottom: 1px solid var(--bd); padding-bottom: 5px;">2. Extrato do TCA e Regra de Eficácia</h3>
+        <input type="hidden" name="effType" id="effType-input" value="${effType}">
+        <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 12px;">
+          <div class="check-card ${effType === 'extrato' ? 'active' : ''}" id="eff-card-extrato" style="cursor:pointer;" data-action="select-efftype" data-val="extrato">
+            <input type="checkbox" id="chk-eff-extrato" ${effType === 'extrato' ? 'checked' : ''} style="pointer-events:none;">
+            <div>
+              <div style="font-weight:700;font-size:13.5px;">📰 Sem Alvará (Eficácia no Extrato)</div>
+              <div style="font-size:11.5px;color:var(--mu);">Eficácia na publicação do extrato no D.O.</div>
+            </div>
+          </div>
+          <div class="check-card ${effType === 'alvara' ? 'active' : ''}" id="eff-card-alvara" style="cursor:pointer;" data-action="select-efftype" data-val="alvara">
+            <input type="checkbox" id="chk-eff-alvara" ${effType === 'alvara' ? 'checked' : ''} style="pointer-events:none;">
+            <div>
+              <div style="font-weight:700;font-size:13.5px;">📜 Com Alvará Apostilado</div>
+              <div style="font-size:11.5px;color:var(--mu);">Eficácia na emissão do alvará + 30d para entrega</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-items: start;">
+          <div>
+            <label class="field-label">Publicação do Extrato do TCA no D.O. *</label>
+            <input type="date" name="extractDate" value="${v('extractDate')}" required>
+            <div style="font-size: 11px; color: var(--mu); margin-top: 3px;">Gera os 30 dias para Indicação do Responsável.</div>
+          </div>
+          <div id="permit-section-box" style="display: ${effType === 'alvara' ? 'block' : 'none'}; background: var(--bg); padding: 10px; border-radius: 8px; border: 1px solid var(--bd);">
+            <label class="field-label" style="margin-bottom: 6px;">O Alvará já foi emitido?</label>
+            <input type="hidden" name="permitIssued" id="permitIssued-input" value="${permitIssued ? 'yes' : 'no'}">
+            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+              <button type="button" class="btn btn-sm ${permitIssued ? 'btn-primary' : ''}" id="btn-perm-yes" data-action="select-permit-issued" data-val="yes">✓ Sim, Emitido</button>
+              <button type="button" class="btn btn-sm ${!permitIssued ? 'btn-brown' : ''}" id="btn-perm-no" data-action="select-permit-issued" data-val="no">⏳ Ainda Não</button>
+            </div>
+            <div id="permit-date-box" style="display: ${permitIssued ? 'block' : 'none'};">
+              <label class="field-label">Data de Emissão do Alvará *</label>
+              <input type="date" name="permitDate" id="permitDate-input" value="${v('permitDate')}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="margin: 0 0 8px; font-size: 14.5px; font-weight: 700; color: var(--pr); border-bottom: 1px solid var(--bd); padding-bottom: 5px;">3. Manejos, Plantio e Compensação (Viveiro / FEMA)</h3>
+        ${renderObligationsSection(c)}
+      </div>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--bd);">
+        <button type="button" class="btn" data-action="${c ? 'open-contract' : 'nav'}" data-id="${c ? c.id : ''}" data-view="contratos">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Salvar Contrato</button>
+      </div>
+    </form>
+  `;
+}
+
+function viewAditivo(id) {
+  const c = contracts.find(x => x.id === id);
+  if (!c) return `<div class="card">Contrato não encontrado.</div>`;
+  const n = (c.amendments || []).length + 1;
+  const numStr = String(n).padStart(2, '0');
+  const pend = c.deadlines.filter(d => !d.done && d.active !== false);
+
+  return `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 700;">📑 Registrar Aditivo ${numStr} · ${esc(c.client)}</h2>
+      <button type="button" class="btn btn-sm" data-action="open-contract" data-id="${c.id}">← Voltar</button>
+    </div>
+
+    <form id="aditivo-form" data-cid="${c.id}" class="card" style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div><label class="field-label">Termo Aditivo</label><input value="Aditivo ${numStr}" disabled></div>
+        <div><label class="field-label">Data do Aditivo *</label><input type="date" name="adDate" value="${today()}" required></div>
+        <div><label class="field-label">Observação / Resumo</label><input name="note" placeholder="Ex: Prorrogação de prazos e inclusão de FEMA"></div>
+      </div>
+      <div>
+        <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--pr);">Alterar Manejo e/ou Compensação</h3>
+        ${renderObligationsSection(c)}
+      </div>
+      <div>
+        <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--br);">Prorrogar Prazos</h3>
+        <div style="overflow-x: auto; border: 1px solid var(--bd); border-radius: 8px;">
+          <table>
+            <thead><tr><th>Obrigação</th><th>Vencimento Atual</th><th>Nova Data Prorrogada</th></tr></thead>
+            <tbody>
+              ${pend.length ? pend.map(d => `
+                <tr>
+                  <td><div style="font-weight:600;font-size:13px;">${esc(d.name)}</div></td>
+                  <td style="font-size:13px;">${BR(d.due)}</td>
+                  <td><input type="date" name="due_${d.k}" value="${d.due || ''}" style="padding:4px 6px;"></td>
+                </tr>
+              `).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--mu);padding:12px;">Nenhum prazo pendente.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button type="button" class="btn" data-action="open-contract" data-id="${c.id}">Cancelar</button>
+        <button type="submit" class="btn btn-brown">💾 Salvar Aditivo ${numStr}</button>
+      </div>
+    </form>
+  `;
+}
+
+function parseObligationsFromForm(fd, effDate) {
+  const o = { conv: '' };
+  o.types = fd.getAll('types');
+  o.plantOn = fd.has('plantOn');
+  o.convV = fd.has('convV');
+  o.convF = fd.has('convF');
+  o.plantStart = o.plantOn ? (fd.get('plantStart') || '') : '';
+  o.obraEnd = o.plantOn ? (fd.get('obraEnd') || '') : '';
+  for (const t of TYPES) {
+    const k = 'start_' + slug(t), v = fd.get(k) || '';
+    if (!o.types.includes(t)) o[k] = '';
+    else {
+      if (v && effDate && v < effDate) { toast(`O ${t.toLowerCase()} só pode ocorrer após a eficácia (${BR(effDate)}).`, 'error'); return null; }
+      o[k] = v;
+    }
+  }
+  if (!o.types.length && !o.plantOn && !o.convV && !o.convF) { toast('Selecione pelo menos uma obrigação para o contrato.', 'warn'); return null; }
+  return o;
+}
+
+const getObligationLabels = c => [
+  ...(c.types || []), c.plantOn ? 'Plantio' : null, (c.convV || c.conv === 'viveiro') ? 'Viveiro' : null, (c.convF || c.conv === 'fema') ? 'FEMA' : null
+].filter(Boolean);
+
+function copyContractSummary(c) {
+  const lines = [
+    `RESUMO TCA — ${c.client}`, `SEI: ${c.sei || '—'} | TCA: ${c.tca || '—'}`, `Endereço: ${c.address}`,
+    `Extrato D.O.: ${BR(c.extractDate)}`, `Eficácia: ${BR(eff(c))}`, `Progresso: ${progress(c)}%`, `----------------------------------------`,
+    ...act(c).map(d => `[${d.done ? 'CONCLUÍDO' : (overdue(d) ? 'ATRASADO' : 'PENDENTE')}] ${d.name} — ${d.due ? BR(d.due) : 'Aguardando informação da realização'}`)
+  ].join('\n');
+  const ta = document.createElement('textarea'); ta.value = lines; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('Resumo copiado para a área de transferência!'); } catch (e) { toast('Não foi possível copiar.', 'error'); }
+  document.body.removeChild(ta);
+}
+
+/* =========================================================================
+   10. RENDERIZAÇÃO E EVENTOS GLOBAIS
+   ========================================================================= */
+function render() {
+  renderHeader();
+  const app = $('#app');
+
+  if (!currentUser || currentUser.mustChangePass) {
+    app.innerHTML = viewLogin();
+    return;
+  }
+
+  if (currentView === 'contratos') app.innerHTML = viewLista();
+  else if (currentView === 'contrato') app.innerHTML = viewDetalhe(currentContractId);
+  else if (currentView === 'novo') app.innerHTML = viewForm(null);
+  else if (currentView === 'editar') app.innerHTML = viewForm(currentContractId);
+  else if (currentView === 'aditivo') app.innerHTML = viewAditivo(currentContractId);
+  else if (currentView === 'usuarios') app.innerHTML = viewUsuarios();
+  else app.innerHTML = viewPainel();
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  if (action === 'close-toast') { const t = btn.closest('.toast'); if (t) t.remove(); return; }
+  if (action === 'nav') { navigateTo(btn.dataset.view); return; }
+  if (action === 'open-contract') { navigateTo('contrato', btn.dataset.id); return; }
+  if (action === 'nav-edit') { navigateTo('editar', btn.dataset.id); return; }
+  if (action === 'nav-aditivo') { navigateTo('aditivo', btn.dataset.id); return; }
+  if (action === 'close-modal') { $('#modal-root').innerHTML = ''; return; }
+
+  if (action === 'logout') {
+    currentUser = null;
+    storageRemove(STORAGE_SESSION);
+    currentView = 'painel';
+    toast('Sessão encerrada.');
+    render();
+    return;
+  }
+
+  if (action === 'toggle-theme') {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) { document.documentElement.removeAttribute('data-theme'); storageSet(STORAGE_THEME, 'light'); }
+    else { document.documentElement.setAttribute('data-theme', 'dark'); storageSet(STORAGE_THEME, 'dark'); }
+    renderHeader(); return;
+  }
+
+  if (action === 'del-user') {
+    if (!isAdminUser(currentUser)) return;
+    users = users.filter(x => x.id !== btn.dataset.id);
+    storageSet(STORAGE_USERS, JSON.stringify(users));
+    toast('Conta removida.'); render(); return;
+  }
+
+  if (action === 'quick-done') {
+    const cid = btn.dataset.cid, idx = +btn.dataset.idx, c = contracts.find(x => x.id === cid);
+    if (c && c.deadlines[idx]) { c.deadlines[idx].done = true; c.deadlines[idx].doneDate = today(); saveContract(c); toast('Prazo concluído!'); render(); }
+    return;
+  }
+
+  if (action === 'set-filter') { statusFilter = btn.dataset.filter; render(); return; }
+
+  if (action === 'export-json') {
+    const blob = new Blob([JSON.stringify(contracts, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `contratos-tca-${today()}.json`; a.click();
+    toast('Backup JSON exportado!'); return;
+  }
+  if (action === 'trigger-import') { $('#import-file')?.click(); return; }
+  if (action === 'open-manage-modal') { openManageDeadlinesModal(btn.dataset.id); return; }
+  if (action === 'copy-sei') { const c = contracts.find(x => x.id === btn.dataset.id); if (c) copyContractSummary(c); return; }
+
+  if (action === 'toggle-finish-contract') {
+    const c = contracts.find(x => x.id === btn.dataset.id);
+    if (c) { c.doneAll = !c.doneAll; saveContract(c); toast(c.doneAll ? 'TCA marcado como concluído!' : 'TCA reaberto.'); render(); }
+    return;
+  }
+
+  if (action === 'delete-contract') {
+    const cid = btn.dataset.id;
+    if (deleteArmedId !== cid) { deleteArmedId = cid; toast('Toque novamente para confirmar a exclusão.', 'warn'); render(); return; }
+    contracts = contracts.filter(x => x.id !== cid); saveContractsToStorage(); deleteArmedId = null; toast('Contrato excluído.'); navigateTo('contratos');
+    return;
+  }
+
+  if (action === 'start-inline-date') { editingDeadlineIdx = +btn.dataset.idx; render(); return; }
+  if (action === 'cancel-inline-date') { editingDeadlineIdx = null; render(); return; }
+
+  if (action === 'save-inline-date') {
+    const c = contracts.find(x => x.id === btn.dataset.id), idx = +btn.dataset.idx, nv = $('#inline-date-input')?.value;
+    editingDeadlineIdx = null;
+    if (c && c.deadlines[idx] && nv && nv !== c.deadlines[idx].due) {
+      const d = c.deadlines[idx]; d.ext = [...(d.ext || []), { from: d.due, to: nv, ad: 0 }]; d.due = nv; saveContract(c); toast('Data atualizada!');
+    }
+    render(); return;
+  }
+
+  if (action === 'done-deadline') {
+    const c = contracts.find(x => x.id === btn.dataset.id), idx = +btn.dataset.idx;
+    if (c && c.deadlines[idx]) { c.deadlines[idx].done = true; c.deadlines[idx].doneDate = today(); saveContract(c); toast('Concluído!'); render(); }
+    return;
+  }
+  if (action === 'undo-deadline') {
+    const c = contracts.find(x => x.id === btn.dataset.id), idx = +btn.dataset.idx;
+    if (c && c.deadlines[idx]) { c.deadlines[idx].done = false; c.deadlines[idx].doneDate = null; saveContract(c); toast('Desfeito.'); render(); }
+    return;
+  }
+
+  if (action === 'select-efftype') {
+    const val = btn.dataset.val;
+    $('#effType-input').value = val;
+    $('#eff-card-extrato').classList.toggle('active', val === 'extrato');
+    $('#eff-card-alvara').classList.toggle('active', val === 'alvara');
+    $('#chk-eff-extrato').checked = val === 'extrato';
+    $('#chk-eff-alvara').checked = val === 'alvara';
+    $('#permit-section-box').style.display = val === 'alvara' ? 'block' : 'none';
+    return;
+  }
+
+  if (action === 'select-permit-issued') {
+    const isYes = btn.dataset.val === 'yes';
+    $('#permitIssued-input').value = isYes ? 'yes' : 'no';
+    $('#btn-perm-yes').className = `btn btn-sm ${isYes ? 'btn-primary' : ''}`;
+    $('#btn-perm-no').className = `btn btn-sm ${!isYes ? 'btn-brown' : ''}`;
+    $('#permit-date-box').style.display = isYes ? 'block' : 'none';
+    return;
+  }
+});
+
+document.addEventListener('change', e => {
+  const cb = e.target;
+  if (cb.matches('input[type="checkbox"][data-card-id]')) {
+    document.getElementById(cb.dataset.cardId)?.classList.toggle('active', cb.checked);
+    if (cb.dataset.toggleBox) {
+      const box = document.getElementById(cb.dataset.toggleBox);
+      if (box) box.style.display = cb.checked ? 'block' : 'none';
+    }
+  }
+});
+
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'search-input') {
+    searchQuery = e.target.value; const pos = e.target.selectionStart; render();
+    const nextInp = $('#search-input'); if (nextInp) { nextInp.focus(); nextInp.setSelectionRange(pos, pos); }
+  }
+});
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const form = e.target;
+
+  if (form.id === 'login-form') {
+    const fd = new FormData(form);
+    const identity = (fd.get('identity') || '').trim();
+    const pass = fd.get('pass') || '';
+
+    const found = users.find(u => {
+      const matchLogin = u.login && u.login.toLowerCase() === identity.toLowerCase();
+      const matchEmail = u.email && u.email.toLowerCase() === identity.toLowerCase();
+      return (matchLogin || matchEmail) && u.pass === pass;
+    });
+
+    if (!found) {
+      toast('Usuário ou senha inválidos.', 'error');
+      return;
+    }
+
+    currentUser = {
+      id: found.id,
+      name: found.name,
+      login: found.login || found.email,
+      email: found.email,
+      role: found.role,
+      isAdmin: !!found.isAdmin,
+      mustChangePass: !!found.mustChangePass
+    };
+    storageSet(STORAGE_SESSION, JSON.stringify(currentUser));
+    toast(`Bem-vindo(a), ${currentUser.name}!`);
+    render();
+    return;
+  }
+
+  if (form.id === 'change-temp-pass-form') {
+    const fd = new FormData(form);
+    const newPass = fd.get('newPass') || '';
+    const confirmPass = fd.get('confirmPass') || '';
+
+    if (newPass !== confirmPass) {
+      toast('As senhas digitadas não coincidem.', 'error');
+      return;
+    }
+
+    currentUser.mustChangePass = false;
+    const idx = users.findIndex(u => u.id === currentUser.id);
+    if (idx >= 0) {
+      users[idx].pass = newPass;
+      users[idx].mustChangePass = false;
+      storageSet(STORAGE_USERS, JSON.stringify(users));
+    }
+    storageSet(STORAGE_SESSION, JSON.stringify(currentUser));
+    toast('Senha definitiva cadastrada com sucesso!');
+    render();
+    return;
+  }
+
+  if (form.id === 'admin-add-user-form') {
+    if (!isAdminUser(currentUser)) { toast('Apenas o Administrador pode criar contas.', 'error'); return; }
+    const fd = new FormData(form);
+    const emailOrLogin = fd.get('email').trim();
+    const nu = {
+      id: uid(),
+      name: fd.get('name').trim(),
+      login: emailOrLogin,
+      email: emailOrLogin.toLowerCase(),
+      role: fd.get('role').trim() || 'Técnico Ambiental',
+      pass: fd.get('pass'),
+      isAdmin: false,
+      mustChangePass: true,
+      createdAt: today()
+    };
+    if (users.some(u => (u.email && u.email.toLowerCase() === nu.email) || (u.login && u.login.toLowerCase() === nu.login.toLowerCase()))) {
+      toast('Este usuário/e-mail já possui cadastro.', 'error');
+      return;
+    }
+    users.push(nu);
+    storageSet(STORAGE_USERS, JSON.stringify(users));
+    toast(`Usuário ${nu.name} cadastrado com senha temporária!`);
+    form.reset(); render(); return;
+  }
+
+  if (form.id === 'contract-form') {
+    const editId = form.dataset.editId || '', fd = new FormData(form), o = Object.fromEntries(fd);
+    const extDate = o.extractDate || '', isAlvara = o.effType === 'alvara', permitIssued = isAlvara ? (o.permitIssued !== 'no') : false;
+    const permDate = (isAlvara && permitIssued) ? (o.permitDate || '') : '';
+
+    if (!extDate) { toast('Informe a data de publicação do extrato.', 'error'); return; }
+    if (isAlvara && permitIssued && !permDate) { toast('Informe a data de emissão do alvará.', 'error'); return; }
+
+    const effDate = isAlvara ? (permitIssued ? permDate : '') : extDate;
+    const ob = parseObligationsFromForm(fd, effDate);
+    if (!ob) return;
+
+    const base = {
+      client: o.client.trim(), address: o.address.trim(), sei: (o.sei || '').trim(), tca: (o.tca || '').trim(),
+      responsible: (o.responsible || '').trim(), effType: o.effType, permitIssued: isAlvara ? permitIssued : false,
+      extractDate: extDate, permitDate: permDate
+    };
+
+    const old = editId ? contracts.find(x => x.id === editId) : null;
+    const nc = { ...(old || {}), ...base, ...ob, id: old?.id || uid(), created: old?.created || today(), doneAll: old?.doneAll || false, amendments: old?.amendments || [] };
+    nc.deadlines = build({ ...nc, deadlines: old?.deadlines || [] });
+
+    saveContract(nc); toast(old ? 'Contrato atualizado!' : 'Contrato salvo!'); navigateTo('contrato', nc.id); return;
+  }
+
+  if (form.id === 'quick-issue-permit-form') {
+    const c = contracts.find(x => x.id === form.dataset.cid), pDate = new FormData(form).get('permitDate');
+    if (!pDate) { toast('Informe a data de emissão do alvará.', 'error'); return; }
+    c.permitIssued = true; c.permitDate = pDate; c.deadlines = build(c); saveContract(c); toast('Alvará registrado e prazos calculados!'); render(); return;
+  }
+
+  if (form.id === 'quick-schedule-form') {
+    const c = contracts.find(x => x.id === form.dataset.cid), fd = new FormData(form), effDate = eff(c);
+    for (const t of (c.types || [])) {
+      const k = 'start_' + slug(t), val = fd.get(k) || '';
+      if (val && effDate && val < effDate) { toast(`O ${t.toLowerCase()} só pode ocorrer após a eficácia (${BR(effDate)}).`, 'error'); return; }
+      c[k] = val;
+    }
+    if (c.plantOn) c.plantStart = fd.get('plantStart') || '';
+    c.deadlines = build(c); saveContract(c); toast('Datas de realização atualizadas!'); render(); return;
+  }
+
+  if (form.id === 'aditivo-form') {
+    const c = contracts.find(x => x.id === form.dataset.cid), fd = new FormData(form), ob = parseObligationsFromForm(fd, eff(c));
+    if (!ob) return;
+    const n = (c.amendments || []).length + 1;
+    const ds = c.deadlines.map(d => {
+      const nd = fd.get('due_' + d.k);
+      return nd && nd !== d.due ? { ...d, due: nd, ext: [...(d.ext || []), { from: d.due, to: nd, ad: n }] } : d;
+    });
+    const progCount = ds.filter((d, i) => d !== c.deadlines[i]).length;
+    const before = getObligationLabels(c), nc = { ...c, ...ob };
+    nc.deadlines = build({ ...nc, deadlines: ds });
+    const after = getObligationLabels(nc);
+    const sum = [...after.filter(x => !before.includes(x)).map(x => '+ ' + x), ...before.filter(x => !after.includes(x)).map(x => '− ' + x)];
+    if (progCount) sum.push(progCount + ' prazo(s) prorrogado(s)');
+    nc.amendments = [...(c.amendments || []), { n, date: fd.get('adDate'), note: (fd.get('note') || '').trim(), sum }];
+    saveContract(nc); toast(`Aditivo ${String(n).padStart(2, '0')} salvo!`); navigateTo('contrato', nc.id); return;
+  }
+
+  if (form.id === 'manage-deadlines-form') {
+    const c = contracts.find(x => x.id === form.dataset.cid), fd = new FormData(form);
+    c.deadlines = c.deadlines.map((d, idx) => {
+      const isAct = fd.has(`act_${idx}`), isDone = fd.has(`done_${idx}`), newDue = fd.get(`due_${idx}`) || d.due;
+      const ext = (newDue && newDue !== d.due) ? [...(d.ext || []), { from: d.due, to: newDue, ad: 0 }] : (d.ext || []);
+      return { ...d, active: isAct, done: isDone, doneDate: isDone ? (d.doneDate || today()) : null, due: newDue, ext };
+    });
+    saveContract(c); $('#modal-root').innerHTML = ''; toast('Prazos atualizados!'); render(); return;
+  }
+});
+
+$('#import-file').addEventListener('change', ev => {
+  const file = ev.target.files?.[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (Array.isArray(data)) { contracts = data; saveContractsToStorage(); toast(`${data.length} contratos importados!`); render(); }
+      else toast('Formato JSON inválido.', 'error');
+    } catch (e) { toast('Falha ao ler arquivo JSON.', 'error'); }
+  };
+  reader.readAsText(file); ev.target.value = '';
+});
+
+seedInitialData();
+render();
+</script>
+</body>
+</html>
