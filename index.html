@@ -356,6 +356,32 @@ const STORAGE_THEME = 'tca_theme_v6';
 const ADMIN_LOGIN = 'AdminSistema';
 const ADMIN_PASS = 'Senha200#';
 
+let contracts = [];
+let users = [];
+let currentUser = null;
+
+const isAdminUser = u => u && (u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+
+function ensureMasterAdminExists() {
+  const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+  const adminObj = {
+    id: 'usr_admin_master',
+    name: 'Administrador do Sistema',
+    login: ADMIN_LOGIN,
+    email: ADMIN_LOGIN,
+    role: 'Administrador',
+    pass: ADMIN_PASS,
+    isAdmin: true,
+    mustChangePass: false,
+    createdAt: today()
+  };
+  if (adminIdx >= 0) {
+    users[adminIdx] = { ...users[adminIdx], login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
+  } else {
+    users.unshift(adminObj);
+  }
+}
+
 /* =========================================================================
    1.1 INTEGRAÇÃO COM SUPABASE (SINCRONIZAÇÃO EM NUVEM + CACHE LOCAL)
    ========================================================================= */
@@ -371,7 +397,8 @@ function supabaseHeaders(prefer = 'return=minimal') {
   const h = {
     'apikey': SUPABASE_API_KEY,
     'Authorization': `Bearer ${SUPABASE_API_KEY}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache'
   };
   if (prefer) h['Prefer'] = prefer;
   return h;
@@ -393,13 +420,16 @@ async function sbUpsertRow(id, dataObj) {
       throw new Error(errTxt || `HTTP ${res.status}`);
     }
     cloudStatus = 'online';
+    cloudErrorDetail = '';
     renderHeader();
+    updateLoginCloudBadge();
     return true;
   } catch (err) {
     console.warn('Aviso ao gravar no Supabase:', err);
     cloudStatus = 'error';
-    cloudErrorDetail = err.message || 'Verifique se a tabela tca_contracts foi criada no SQL Editor.';
+    cloudErrorDetail = err.message || 'Verifique se a tabela tca_contracts foi criada no SQL Editor do Supabase.';
     renderHeader();
+    updateLoginCloudBadge();
     return false;
   }
 }
@@ -422,11 +452,12 @@ async function sbDeleteRow(id) {
   }
 }
 
-async function syncFromSupabase(silent = true) {
+async function syncFromSupabase(silent = true, skipRenderIfLogin = false) {
   try {
     cloudStatus = 'connecting';
     renderHeader();
-    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?select=id,data,updated_at`, {
+    updateLoginCloudBadge();
+    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?select=id,data,updated_at&t=${Date.now()}`, {
       method: 'GET',
       headers: supabaseHeaders('')
     });
@@ -467,55 +498,55 @@ async function syncFromSupabase(silent = true) {
         await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
       }
     } else {
-      // Banco na nuvem está vazio: envia os dados iniciais para o Supabase
       for (const c of contracts) {
         await sbUpsertRow(c.id, c);
       }
       await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
     }
 
+    updateLoginCloudBadge();
     if (!silent) toast('☁️ Sincronizado com o Supabase com sucesso!');
-    render();
+    if (!(skipRenderIfLogin && (!currentUser || currentUser.mustChangePass))) {
+      render();
+    }
+    return true;
   } catch (err) {
     console.warn('Falha ao sincronizar com Supabase:', err);
     cloudStatus = 'error';
     cloudErrorDetail = err.message || 'Tabela tca_contracts não encontrada ou RLS bloqueado';
-    if (!silent) toast('Não foi possível conectar à tabela no Supabase. Verifique o SQL Editor.', 'warn');
+    updateLoginCloudBadge();
+    if (!silent) toast('Erro ao conectar ao Supabase: verifique se executou o SQL no painel do Supabase.', 'error');
     renderHeader();
+    return false;
   }
 }
 
-function saveUsersToStorageAndCloud() {
+async function saveUsersToStorageAndCloud() {
   ensureMasterAdminExists();
   storageSet(STORAGE_USERS, JSON.stringify(users));
-  sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
+  const ok = await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
+  if (!ok) {
+    toast('⚠️ Salvo apenas neste navegador! A tabela tca_contracts no Supabase não respondeu.', 'warn');
+  }
+  return ok;
 }
 
-function ensureMasterAdminExists() {
-  const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
-  const adminObj = {
-    id: 'usr_admin_master',
-    name: 'Administrador do Sistema',
-    login: ADMIN_LOGIN,
-    email: ADMIN_LOGIN,
-    role: 'Administrador',
-    pass: ADMIN_PASS,
-    isAdmin: true,
-    mustChangePass: false,
-    createdAt: today()
-  };
-  if (adminIdx >= 0) {
-    users[adminIdx] = { ...users[adminIdx], login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
+function updateLoginCloudBadge() {
+  const el = $('#login-cloud-status');
+  if (!el) return;
+  if (cloudStatus === 'online') {
+    el.innerHTML = `<span style="color:var(--ok);font-weight:600;">☁️ Banco na Nuvem Conectado (${users.length} conta${users.length > 1 ? 's' : ''} sincronizada${users.length > 1 ? 's' : ''})</span>`;
+  } else if (cloudStatus === 'connecting') {
+    el.innerHTML = `<span style="color:var(--mu);">⏳ Sincronizando contas com o Supabase...</span>`;
   } else {
-    users.unshift(adminObj);
+    el.innerHTML = `
+      <div style="background:var(--da-bg);color:var(--da);padding:8px 10px;border-radius:8px;font-size:11.5px;text-align:left;margin-top:6px;">
+        <b>⚠️ Supabase ainda não conectado:</b> As contas criadas só funcionarão em outros navegadores após você criar a tabela <code>tca_contracts</code> no menu <b>SQL Editor</b> do Supabase.<br>
+        <span style="font-size:10.5px;opacity:0.85;">Detalhe: ${esc(cloudErrorDetail)}</span>
+      </div>
+    `;
   }
 }
-
-let contracts = [];
-let users = [];
-let currentUser = null;
-
-const isAdminUser = u => u && (u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
 
 /* =========================================================================
    2. REGRAS DE NEGÓCIO DO TCA
@@ -541,11 +572,9 @@ function build(c) {
   if (!extDate && !effDate) return [];
 
   const L = [];
-  // 1. Indicação do responsável sempre conta do extrato do TCA (30 dias)
   if (extDate) {
     L.push(['resp', 'Indicação do responsável pelo acompanhamento', `30 dias a partir da publicação do extrato do TCA (${BR(extDate)})`, addD(extDate, 30)]);
   }
-  // 2. Entrega do alvará (30 dias após sua emissão)
   if (c.effType === 'alvara') {
     if (isPermitIssued(c) && c.permitDate) {
       L.push(['alvara', 'Entrega do alvará apostilado com nº do TCA', `Até 30 dias após a emissão do alvará (${BR(c.permitDate)})`, addD(c.permitDate, 30)]);
@@ -554,7 +583,6 @@ function build(c) {
     }
   }
 
-  // 3. Prazos contados da eficácia
   if (effDate) {
     const man = c.types || [];
     if (man.length) {
@@ -678,7 +706,6 @@ function seedInitialData() {
     storageSet(STORAGE_CONTRACTS, JSON.stringify(contracts));
   }
 
-  // Inicia sempre deslogado ou recupera sessão válida apenas se já autenticada nesta chave
   const sess = storageGet(STORAGE_SESSION);
   if (sess) {
     try { currentUser = JSON.parse(sess); } catch (e) { currentUser = null; }
@@ -765,7 +792,6 @@ function tagFor(d) {
    4. TELA INICIAL DE LOGIN E TROCA DE SENHA NO PRIMEIRO ACESSO
    ========================================================================= */
 function viewLogin() {
-  // Se o usuário logou com senha temporária, exibe a tela obrigatória de redefinição
   if (currentUser && currentUser.mustChangePass) {
     return `
       <div style="min-height: 82vh; display: flex; align-items: center; justify-content: center; padding: 14px;">
@@ -817,12 +843,14 @@ function viewLogin() {
             <label class="field-label">Senha</label>
             <input type="password" name="pass" placeholder="Digite sua senha" required autocomplete="off">
           </div>
-          <button type="submit" class="btn btn-primary" style="padding: 11px; margin-top: 4px; font-size: 14px; width: 100%;">
+          <button type="submit" id="btn-login-submit" class="btn btn-primary" style="padding: 11px; margin-top: 4px; font-size: 14px; width: 100%;">
             Entrar no Sistema
           </button>
         </form>
 
-        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--bd); text-align: center; font-size: 12px; color: var(--mu);">
+        <div id="login-cloud-status" style="margin-top: 12px; text-align: center; font-size: 12px;"></div>
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bd); text-align: center; font-size: 12px; color: var(--mu);">
           Acesso restrito a usuários autorizados. Novas contas são cadastradas exclusivamente pelo Administrador.
         </div>
       </div>
@@ -1527,6 +1555,7 @@ function render() {
 
   if (!currentUser || currentUser.mustChangePass) {
     app.innerHTML = viewLogin();
+    updateLoginCloudBadge();
     return;
   }
 
@@ -1655,34 +1684,50 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const cb = e.target;
   if (cb.matches('input[type="checkbox"][data-card-id]')) {
-    document.getElementById(cb.dataset.cardId)?.classList.toggle('active', cb.checked);
-    if (cb.dataset.toggleBox) {
-      const box = document.getElementById(cb.dataset.toggleBox);
-      if (box) box.style.display = cb.checked ? 'block' : 'none';
-    }
+    const card = document.getElementById(cb.dataset.cardId);
+    if (card) card.classList.toggle('active', cb.checked);
+  }
+  if (cb.matches('input[type="checkbox"][data-toggle-box]')) {
+    const box = document.getElementById(cb.dataset.toggleBox);
+    if (box) box.style.display = cb.checked ? 'block' : 'none';
   }
 });
 
 document.addEventListener('input', e => {
-  if (e.target && e.target.id === 'search-input') {
-    searchQuery = e.target.value; const pos = e.target.selectionStart; render();
-    const nextInp = $('#search-input'); if (nextInp) { nextInp.focus(); nextInp.setSelectionRange(pos, pos); }
+  if (e.target.id === 'search-input') {
+    searchQuery = e.target.value;
+    const pos = e.target.selectionStart;
+    render();
+    const inp = $('#search-input');
+    if (inp) { inp.focus(); inp.setSelectionRange(pos, pos); }
   }
 });
 
-document.addEventListener('submit', e => {
+document.addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target;
 
   if (form.id === 'login-form') {
     const fd = new FormData(form);
     const identity = (fd.get('identity') || '').trim();
-    const pass = fd.get('pass') || '';
+    const pass = (fd.get('pass') || '').trim();
+    const submitBtn = $('#btn-login-submit');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Verificando na nuvem...';
+    }
+
+    await syncFromSupabase(true, true);
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Entrar no Sistema';
+    }
 
     const found = users.find(u => {
-      const matchLogin = u.login && u.login.toLowerCase() === identity.toLowerCase();
-      const matchEmail = u.email && u.email.toLowerCase() === identity.toLowerCase();
-      return (matchLogin || matchEmail) && u.pass === pass;
+      const matchLogin = u.login && u.login.trim().toLowerCase() === identity.toLowerCase();
+      const matchEmail = u.email && u.email.trim().toLowerCase() === identity.toLowerCase();
+      return (matchLogin || matchEmail) && String(u.pass).trim() === pass;
     });
 
     if (!found) {
@@ -1707,8 +1752,8 @@ document.addEventListener('submit', e => {
 
   if (form.id === 'change-temp-pass-form') {
     const fd = new FormData(form);
-    const newPass = fd.get('newPass') || '';
-    const confirmPass = fd.get('confirmPass') || '';
+    const newPass = (fd.get('newPass') || '').trim();
+    const confirmPass = (fd.get('confirmPass') || '').trim();
 
     if (newPass !== confirmPass) {
       toast('As senhas digitadas não coincidem.', 'error');
@@ -1716,14 +1761,14 @@ document.addEventListener('submit', e => {
     }
 
     currentUser.mustChangePass = false;
-    const idx = users.findIndex(u => u.id === currentUser.id);
+    const idx = users.findIndex(u => u.id === currentUser.id || (u.email && u.email.toLowerCase() === (currentUser.email || '').toLowerCase()));
     if (idx >= 0) {
       users[idx].pass = newPass;
       users[idx].mustChangePass = false;
-      saveUsersToStorageAndCloud();
+      await saveUsersToStorageAndCloud();
     }
     storageSet(STORAGE_SESSION, JSON.stringify(currentUser));
-    toast('Senha definitiva cadastrada com sucesso!');
+    toast('Senha definitiva salva e sincronizada na nuvem!');
     render();
     return;
   }
@@ -1738,7 +1783,7 @@ document.addEventListener('submit', e => {
       login: emailOrLogin,
       email: emailOrLogin.toLowerCase(),
       role: fd.get('role').trim() || 'Técnico Ambiental',
-      pass: fd.get('pass'),
+      pass: (fd.get('pass') || '').trim(),
       isAdmin: false,
       mustChangePass: true,
       createdAt: today()
@@ -1748,8 +1793,10 @@ document.addEventListener('submit', e => {
       return;
     }
     users.push(nu);
-    saveUsersToStorageAndCloud();
-    toast(`Usuário ${nu.name} cadastrado com senha temporária!`);
+    const savedCloud = await saveUsersToStorageAndCloud();
+    if (savedCloud) {
+      toast(`☁️ Usuário ${nu.name} salvo no Supabase! Já pode logar em qualquer navegador.`);
+    }
     form.reset(); render(); return;
   }
 
@@ -1845,7 +1892,7 @@ $('#import-file').addEventListener('change', ev => {
 
 seedInitialData();
 render();
-syncFromSupabase(true);
+syncFromSupabase(true, true);
 </script>
 </body>
 </html>
