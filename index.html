@@ -287,33 +287,12 @@
 
 <script>
 /* =========================================================================
-1. ESTADO, CRIPTOGRAFIA SHA-256 E ARMAZENAMENTO SEGURO
+1. ESTADO E ARMAZENAMENTO SEGURO
    ========================================================================= */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-
-async function sha256Hex(str) {
-  const clean = String(str ?? '').trim();
-  if (/^[a-f0-9]{64}$/i.test(clean)) return clean.toLowerCase();
-  const salted = 'TCA_SVMA_SALT_2026::' + clean;
-  if (window.crypto && window.crypto.subtle) {
-    const buf = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(salted));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-  for (let i = 0; i < salted.length; i++) {
-    const ch = salted.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return ((h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0')).repeat(4);
-}
-
-const isSha256Hash = val => typeof val === 'string' && /^[a-f0-9]{64}$/i.test(val.trim());
 
 let currentView = 'painel';
 let currentContractId = null;
@@ -321,7 +300,7 @@ let editingDeadlineIdx = null;
 let deleteArmedId = null;
 let searchQuery = '';
 let statusFilter = 'all';
-let ownerFilter = 'all';
+let ownerFilter = 'all'; // Filtro exclusivo para o Administrador filtrar por técnico
 
 const memoryStore = {};
 function storageGet(key) {
@@ -354,7 +333,7 @@ const addM = (s, n) => {
 const diff = s => Math.round((P(s) - P(today())) / 864e5);
 
 const TYPES = ['Corte', 'Remoção', 'Transplante'];
-const slug = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 function toast(msg, type = 'success') {
   const box = $('#toast-container');
@@ -366,21 +345,19 @@ function toast(msg, type = 'success') {
   setTimeout(() => { if (el.parentElement) el.remove(); }, 4000);
 }
 
-const STORAGE_CONTRACTS = 'tca_contracts_v8';
-const STORAGE_USERS = 'tca_users_v8';
-const STORAGE_SESSION = 'tca_session_v8';
-const STORAGE_THEME = 'tca_theme_v8';
+const STORAGE_CONTRACTS = 'tca_contracts_v7';
+const STORAGE_USERS = 'tca_users_v7';
+const STORAGE_SESSION = 'tca_session_v7';
+const STORAGE_THEME = 'tca_theme_v7';
 
-// Nenhuma credencial em texto claro no código-fonte!
-// O administrador é validado exclusivamente pelo hash SHA-256 salvo no banco de dados.
-const DEFAULT_ADMIN_ID = 'usr_admin_master';
-const DEFAULT_ADMIN_HASH = 'c9135147fa3ba8a09d976dc5b32e0d41379277f621f9959e12b71bd57a0d2f5d';
+const ADMIN_LOGIN = 'AdminSistema';
+const ADMIN_PASS = 'Senha200#';
 
 let contracts = [];
 let users = [];
 let currentUser = null;
 
-const isAdminUser = u => u && (u.isAdmin === true || u.id === DEFAULT_ADMIN_ID);
+const isAdminUser = u => u && (u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
 
 /* =========================================================================
    CONTROLE DE VISIBILIDADE POR USUÁRIO (SOMENTE ADMIN VÊ TUDO)
@@ -404,27 +381,22 @@ function getVisibleContracts() {
 }
 
 function ensureMasterAdminExists() {
-  const adminIdx = users.findIndex(u => u.isAdmin === true || u.id === DEFAULT_ADMIN_ID);
+  const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+  const adminObj = {
+    id: 'usr_admin_master',
+    name: 'Administrador do Sistema',
+    login: ADMIN_LOGIN,
+    email: ADMIN_LOGIN,
+    role: 'Administrador',
+    pass: ADMIN_PASS,
+    isAdmin: true,
+    mustChangePass: false,
+    createdAt: today()
+  };
   if (adminIdx >= 0) {
-    users[adminIdx] = {
-      ...users[adminIdx],
-      id: DEFAULT_ADMIN_ID,
-      isAdmin: true,
-      passHash: users[adminIdx].passHash || DEFAULT_ADMIN_HASH
-    };
-    delete users[adminIdx].pass;
+    users[adminIdx] = { ...users[adminIdx], id: 'usr_admin_master', login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
   } else {
-    users.unshift({
-      id: DEFAULT_ADMIN_ID,
-      name: 'Administrador do Sistema',
-      login: 'AdminSistema',
-      email: 'AdminSistema',
-      role: 'Administrador',
-      passHash: DEFAULT_ADMIN_HASH,
-      isAdmin: true,
-      mustChangePass: false,
-      createdAt: today()
-    });
+    users.unshift(adminObj);
   }
 }
 
@@ -498,22 +470,6 @@ async function sbDeleteRow(id) {
   }
 }
 
-async function migratePlainPasswordsToHash() {
-  let changed = false;
-  for (let i = 0; i < users.length; i++) {
-    const u = users[i];
-    if (u.pass && !u.passHash) {
-      u.passHash = await sha256Hex(u.pass);
-      delete u.pass;
-      changed = true;
-    } else if (u.pass) {
-      delete u.pass;
-      changed = true;
-    }
-  }
-  return changed;
-}
-
 async function syncFromSupabase(silent = true, skipRenderIfLogin = false) {
   try {
     cloudStatus = 'connecting';
@@ -555,9 +511,7 @@ async function syncFromSupabase(silent = true, skipRenderIfLogin = false) {
       if (loadedUsers && loadedUsers.length > 0) {
         users = loadedUsers;
         ensureMasterAdminExists();
-        const migrated = await migratePlainPasswordsToHash();
         storageSet(STORAGE_USERS, JSON.stringify(users));
-        if (migrated) await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
       } else {
         await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
       }
@@ -587,7 +541,6 @@ async function syncFromSupabase(silent = true, skipRenderIfLogin = false) {
 
 async function saveUsersToStorageAndCloud() {
   ensureMasterAdminExists();
-  await migratePlainPasswordsToHash();
   storageSet(STORAGE_USERS, JSON.stringify(users));
   const ok = await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
   if (!ok) {
@@ -711,9 +664,9 @@ function seedInitialData() {
   if (!Array.isArray(contracts) || !contracts.length) {
     const c1 = {
       id: 'tca_demo_1',
-      ownerId: DEFAULT_ADMIN_ID,
+      ownerId: 'usr_admin_master',
       ownerName: 'Administrador do Sistema',
-      ownerEmail: 'AdminSistema',
+      ownerEmail: ADMIN_LOGIN,
       client: 'Incorporadora Parque Aliança S.A.',
       address: 'Rua Vergueiro, 3100 - Vila Mariana, São Paulo/SP',
       sei: '6027.2026/0005678-9',
@@ -747,9 +700,9 @@ function seedInitialData() {
 
     const c2 = {
       id: 'tca_demo_2',
-      ownerId: DEFAULT_ADMIN_ID,
+      ownerId: 'usr_admin_master',
       ownerName: 'Administrador do Sistema',
-      ownerEmail: 'AdminSistema',
+      ownerEmail: ADMIN_LOGIN,
       client: 'Construtora Horizonte Paulista Ltda.',
       address: 'Av. Paulista, 1850 - Bela Vista, São Paulo/SP',
       sei: '6027.2026/0001234-5',
@@ -839,7 +792,6 @@ function renderHeader() {
     return `<button type="button" data-action="nav" data-view="${k}" style="color:#fff;border:1px solid ${isActive ? 'rgba(255,255,255,0.45)' : 'transparent'};padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;background:${isActive ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)'};">${label}</button>`;
   }).join('') + `
     ${cloudBadge}
-    <button type="button" data-action="open-my-password-modal" title="Alterar Minha Senha" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:6px 9px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">🔑 Senha</button>
     <button type="button" data-action="toggle-theme" title="Alternar Tema" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:6px 9px;border-radius:8px;cursor:pointer;font-size:13px;">${isDark ? '☀️' : '🌙'}</button>
     <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.25);padding:4px 9px;border-radius:8px;font-size:12px;margin-left:auto;">
       <span>${isAdminUser(currentUser) ? '🛡️' : '👤'} ${esc((currentUser?.name || currentUser?.login || 'Usuário').split(' ')[0])}</span>
@@ -862,7 +814,7 @@ function tagFor(d) {
 }
 
 /* =========================================================================
-4. TELA INICIAL DE LOGIN E TROCA DE SENHA
+4. TELA INICIAL DE LOGIN E TROCA DE SENHA NO PRIMEIRO ACESSO
    ========================================================================= */
 function viewLogin() {
   if (currentUser && currentUser.mustChangePass) {
@@ -924,44 +876,8 @@ function viewLogin() {
         <div id="login-cloud-status" style="margin-top: 12px; text-align: center; font-size: 12px;"></div>
 
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bd); text-align: center; font-size: 12px; color: var(--mu);">
-          Acesso restrito a usuários autorizados. Senhas protegidas com criptografia SHA-256.
+          Acesso restrito a usuários autorizados. Cada técnico visualiza apenas os seus próprios contratos cadastrados.
         </div>
-      </div>
-    </div>
-  `;
-}
-
-function openMyPasswordModal() {
-  if (!currentUser) return;
-  const root = $('#modal-root');
-  root.innerHTML = `
-    <div class="modal-backdrop">
-      <div class="modal-box" style="max-width: 430px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0; font-size: 17px; font-weight: 700;">🔑 Alterar Minha Senha</h3>
-          <button type="button" class="btn btn-sm" data-action="close-modal">✕ Fechar</button>
-        </div>
-        <p style="font-size: 12.5px; color: var(--mu); margin-top: 0;">
-          Usuário: <b>${esc(currentUser.name)}</b> (${esc(currentUser.login || currentUser.email)})
-        </p>
-        <form id="self-change-pass-form" style="display: flex; flex-direction: column; gap: 11px;">
-          <div>
-            <label class="field-label">Senha Atual *</label>
-            <input type="password" name="currentPass" placeholder="Digite sua senha atual" required autocomplete="current-password">
-          </div>
-          <div>
-            <label class="field-label">Nova Senha *</label>
-            <input type="password" name="newPass" placeholder="Digite a nova senha" minlength="4" required autocomplete="new-password">
-          </div>
-          <div>
-            <label class="field-label">Confirmar Nova Senha *</label>
-            <input type="password" name="confirmPass" placeholder="Repita a nova senha" minlength="4" required autocomplete="new-password">
-          </div>
-          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
-            <button type="button" class="btn" data-action="close-modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">💾 Atualizar Senha</button>
-          </div>
-        </form>
       </div>
     </div>
   `;
@@ -977,10 +893,9 @@ function viewUsuarios() {
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
       <div>
         <h2 style="margin: 0; font-size: 20px; font-weight: 700;">👤 Gestão de Contas de Usuários</h2>
-        <div style="color: var(--mu); font-size: 13px;">Cadastre o e-mail e a senha temporária para novos usuários (todas as senhas são armazenadas com hash SHA-256)</div>
+        <div style="color: var(--mu); font-size: 13px;">Cadastre o e-mail e a senha temporária para novos usuários (eles alterarão a senha no 1º acesso)</div>
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button type="button" class="btn btn-sm btn-brown" data-action="open-my-password-modal">🔑 Alterar Senha do Admin</button>
         <button type="button" class="btn btn-sm" data-action="nav" data-view="painel">← Voltar ao Painel</button>
       </div>
     </div>
@@ -1028,7 +943,7 @@ function viewUsuarios() {
                   </div>
                   <div style="font-size: 12px; color: var(--mu);">
                     ${esc(u.isAdmin ? 'Conta Administrador (Visualiza tudo)' : (u.email || u.login))} · ${esc(u.role || 'Técnico')}
-                    ${u.mustChangePass ? ' · <span style="color:var(--wa);font-weight:600;">Aguardando troca de senha</span>' : ' · <span style="color:var(--ok);">🔒 SHA-256</span>'}
+                    ${u.mustChangePass ? ' · <span style="color:var(--wa);font-weight:600;">Aguardando troca de senha</span>' : ''}
                   </div>
                 </div>
                 ${!u.isAdmin ? `
@@ -1708,8 +1623,7 @@ function copyContractSummary(c) {
     `RESUMO TCA — ${c.client}`, `SEI: ${c.sei || '—'} | TCA: ${c.tca || '—'}`, `Endereço: ${c.address}`,
     `Extrato D.O.: ${BR(c.extractDate)}`, `Eficácia: ${BR(eff(c))}`, `Progresso: ${progress(c)}%`, `----------------------------------------`,
     ...act(c).map(d => `[${d.done ? 'CONCLUÍDO' : (overdue(d) ? 'ATRASADO' : 'PENDENTE')}] ${d.name} — ${d.due ? BR(d.due) : 'Aguardando informação da realização'}`)
-  ].join('
-');
+  ].join('\n');
   const ta = document.createElement('textarea'); ta.value = lines; document.body.appendChild(ta); ta.select();
   try { document.execCommand('copy'); toast('Resumo copiado para a área de transferência!'); } catch (e) { toast('Não foi possível copiar.', 'error'); }
   document.body.removeChild(ta);
@@ -1749,7 +1663,6 @@ document.addEventListener('click', e => {
   if (action === 'nav-aditivo') { navigateTo('aditivo', btn.dataset.id); return; }
   if (action === 'close-modal') { $('#modal-root').innerHTML = ''; return; }
   if (action === 'sync-cloud') { syncFromSupabase(false); return; }
-  if (action === 'open-my-password-modal') { openMyPasswordModal(); return; }
 
   if (action === 'logout') {
     currentUser = null;
@@ -1909,15 +1822,10 @@ document.addEventListener('submit', async e => {
       submitBtn.textContent = 'Entrar no Sistema';
     }
 
-    const inputHash = await sha256Hex(pass);
-
     const found = users.find(u => {
       const matchLogin = u.login && u.login.trim().toLowerCase() === identity.toLowerCase();
       const matchEmail = u.email && u.email.trim().toLowerCase() === identity.toLowerCase();
-      if (!matchLogin && !matchEmail) return false;
-      if (u.passHash) return u.passHash.toLowerCase() === inputHash.toLowerCase();
-      if (u.pass) return String(u.pass).trim() === pass;
-      return false;
+      return (matchLogin || matchEmail) && String(u.pass).trim() === pass;
     });
 
     if (!found) {
@@ -1950,47 +1858,15 @@ document.addEventListener('submit', async e => {
       return;
     }
 
-    const newHash = await sha256Hex(newPass);
     currentUser.mustChangePass = false;
     const idx = users.findIndex(u => u.id === currentUser.id || (u.email && u.email.toLowerCase() === (currentUser.email || '').toLowerCase()));
     if (idx >= 0) {
-      users[idx].passHash = newHash;
-      delete users[idx].pass;
+      users[idx].pass = newPass;
       users[idx].mustChangePass = false;
       await saveUsersToStorageAndCloud();
     }
     storageSet(STORAGE_SESSION, JSON.stringify(currentUser));
-    toast('Senha definitiva criptografada e salva na nuvem!');
-    render();
-    return;
-  }
-
-  if (form.id === 'self-change-pass-form') {
-    const fd = new FormData(form);
-    const currentPass = (fd.get('currentPass') || '').trim();
-    const newPass = (fd.get('newPass') || '').trim();
-    const confirmPass = (fd.get('confirmPass') || '').trim();
-
-    if (newPass !== confirmPass) {
-      toast('A nova senha e a confirmação não coincidem.', 'error');
-      return;
-    }
-
-    const idx = users.findIndex(u => u.id === currentUser.id);
-    if (idx < 0) return;
-
-    const currentHash = await sha256Hex(currentPass);
-    if (users[idx].passHash && users[idx].passHash.toLowerCase() !== currentHash.toLowerCase()) {
-      toast('A senha atual informada está incorreta.', 'error');
-      return;
-    }
-
-    users[idx].passHash = await sha256Hex(newPass);
-    delete users[idx].pass;
-    users[idx].mustChangePass = false;
-    await saveUsersToStorageAndCloud();
-    $('#modal-root').innerHTML = '';
-    toast('Sua senha foi alterada e sincronizada com sucesso!');
+    toast('Senha definitiva salva e sincronizada na nuvem!');
     render();
     return;
   }
@@ -1999,16 +1875,13 @@ document.addEventListener('submit', async e => {
     if (!isAdminUser(currentUser)) { toast('Apenas o Administrador pode criar contas.', 'error'); return; }
     const fd = new FormData(form);
     const emailOrLogin = fd.get('email').trim();
-    const rawTempPass = (fd.get('pass') || '').trim();
-    const passHash = await sha256Hex(rawTempPass);
-
     const nu = {
       id: uid(),
       name: fd.get('name').trim(),
       login: emailOrLogin,
       email: emailOrLogin.toLowerCase(),
       role: fd.get('role').trim() || 'Técnico Ambiental',
-      passHash,
+      pass: (fd.get('pass') || '').trim(),
       isAdmin: false,
       mustChangePass: true,
       createdAt: today()
@@ -2020,7 +1893,7 @@ document.addEventListener('submit', async e => {
     users.push(nu);
     const savedCloud = await saveUsersToStorageAndCloud();
     if (savedCloud) {
-      toast(`☁️ Usuário ${nu.name} salvo no Supabase com senha criptografada!`);
+      toast(`☁️ Usuário ${nu.name} salvo no Supabase!`);
     }
     form.reset(); render(); return;
   }
