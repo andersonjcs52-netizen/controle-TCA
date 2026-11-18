@@ -356,6 +356,161 @@ const STORAGE_THEME = 'tca_theme_v6';
 const ADMIN_LOGIN = 'AdminSistema';
 const ADMIN_PASS = 'Senha200#';
 
+/* =========================================================================
+   1.1 INTEGRAÇÃO COM SUPABASE (SINCRONIZAÇÃO EM NUVEM + CACHE LOCAL)
+   ========================================================================= */
+const SUPABASE_REST_URL = 'https://euwbebbbnjjsgtzbbvjf.supabase.co/rest/v1';
+const SUPABASE_API_KEY = 'sb_publishable_bDcSvRft7bP0sIbflUnHfQ_1xb_lJbf';
+const SUPABASE_TABLE = 'tca_contracts';
+const USERS_CLOUD_DOC_ID = '__tca_system_users__';
+
+let cloudStatus = 'connecting'; // 'connecting' | 'online' | 'error'
+let cloudErrorDetail = '';
+
+function supabaseHeaders(prefer = 'return=minimal') {
+  const h = {
+    'apikey': SUPABASE_API_KEY,
+    'Authorization': `Bearer ${SUPABASE_API_KEY}`,
+    'Content-Type': 'application/json'
+  };
+  if (prefer) h['Prefer'] = prefer;
+  return h;
+}
+
+async function sbUpsertRow(id, dataObj) {
+  try {
+    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?on_conflict=id`, {
+      method: 'POST',
+      headers: supabaseHeaders('resolution=merge-duplicates,return=minimal'),
+      body: JSON.stringify({
+        id: String(id),
+        data: dataObj,
+        updated_at: new Date().toISOString()
+      })
+    });
+    if (!res.ok) {
+      const errTxt = await res.text();
+      throw new Error(errTxt || `HTTP ${res.status}`);
+    }
+    cloudStatus = 'online';
+    renderHeader();
+    return true;
+  } catch (err) {
+    console.warn('Aviso ao gravar no Supabase:', err);
+    cloudStatus = 'error';
+    cloudErrorDetail = err.message || 'Verifique se a tabela tca_contracts foi criada no SQL Editor.';
+    renderHeader();
+    return false;
+  }
+}
+
+async function sbDeleteRow(id) {
+  try {
+    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: supabaseHeaders('return=minimal')
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    cloudStatus = 'online';
+    renderHeader();
+    return true;
+  } catch (err) {
+    console.warn('Aviso ao excluir no Supabase:', err);
+    cloudStatus = 'error';
+    renderHeader();
+    return false;
+  }
+}
+
+async function syncFromSupabase(silent = true) {
+  try {
+    cloudStatus = 'connecting';
+    renderHeader();
+    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?select=id,data,updated_at`, {
+      method: 'GET',
+      headers: supabaseHeaders('')
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || `HTTP ${res.status}`);
+    }
+
+    const rows = await res.json();
+    cloudStatus = 'online';
+    cloudErrorDetail = '';
+
+    if (Array.isArray(rows) && rows.length > 0) {
+      const loadedContracts = [];
+      let loadedUsers = null;
+
+      for (const r of rows) {
+        if (r.id === USERS_CLOUD_DOC_ID && r.data && Array.isArray(r.data.users)) {
+          loadedUsers = r.data.users;
+        } else if (r.data && r.data.id) {
+          loadedContracts.push(r.data);
+        }
+      }
+
+      if (loadedContracts.length > 0) {
+        contracts = loadedContracts;
+        storageSet(STORAGE_CONTRACTS, JSON.stringify(contracts));
+      } else if (contracts.length > 0) {
+        for (const c of contracts) await sbUpsertRow(c.id, c);
+      }
+
+      if (loadedUsers && loadedUsers.length > 0) {
+        users = loadedUsers;
+        ensureMasterAdminExists();
+        storageSet(STORAGE_USERS, JSON.stringify(users));
+      } else {
+        await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
+      }
+    } else {
+      // Banco na nuvem está vazio: envia os dados iniciais para o Supabase
+      for (const c of contracts) {
+        await sbUpsertRow(c.id, c);
+      }
+      await sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
+    }
+
+    if (!silent) toast('☁️ Sincronizado com o Supabase com sucesso!');
+    render();
+  } catch (err) {
+    console.warn('Falha ao sincronizar com Supabase:', err);
+    cloudStatus = 'error';
+    cloudErrorDetail = err.message || 'Tabela tca_contracts não encontrada ou RLS bloqueado';
+    if (!silent) toast('Não foi possível conectar à tabela no Supabase. Verifique o SQL Editor.', 'warn');
+    renderHeader();
+  }
+}
+
+function saveUsersToStorageAndCloud() {
+  ensureMasterAdminExists();
+  storageSet(STORAGE_USERS, JSON.stringify(users));
+  sbUpsertRow(USERS_CLOUD_DOC_ID, { users });
+}
+
+function ensureMasterAdminExists() {
+  const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
+  const adminObj = {
+    id: 'usr_admin_master',
+    name: 'Administrador do Sistema',
+    login: ADMIN_LOGIN,
+    email: ADMIN_LOGIN,
+    role: 'Administrador',
+    pass: ADMIN_PASS,
+    isAdmin: true,
+    mustChangePass: false,
+    createdAt: today()
+  };
+  if (adminIdx >= 0) {
+    users[adminIdx] = { ...users[adminIdx], login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
+  } else {
+    users.unshift(adminObj);
+  }
+}
+
 let contracts = [];
 let users = [];
 let currentUser = null;
@@ -453,24 +608,7 @@ function seedInitialData() {
   }
   if (!Array.isArray(users)) users = [];
 
-  // Garante que o administrador configurado exista sempre
-  const adminIdx = users.findIndex(u => u.isAdmin === true || String(u.login || '').toLowerCase() === ADMIN_LOGIN.toLowerCase());
-  const adminObj = {
-    id: 'usr_admin_master',
-    name: 'Administrador do Sistema',
-    login: ADMIN_LOGIN,
-    email: ADMIN_LOGIN,
-    role: 'Administrador',
-    pass: ADMIN_PASS,
-    isAdmin: true,
-    mustChangePass: false,
-    createdAt: today()
-  };
-  if (adminIdx >= 0) {
-    users[adminIdx] = { ...users[adminIdx], login: ADMIN_LOGIN, pass: ADMIN_PASS, isAdmin: true };
-  } else {
-    users.unshift(adminObj);
-  }
+  ensureMasterAdminExists();
   storageSet(STORAGE_USERS, JSON.stringify(users));
 
   const savedContracts = storageGet(STORAGE_CONTRACTS);
@@ -558,6 +696,7 @@ function saveContract(c) {
   if (idx >= 0) contracts[idx] = c;
   else contracts.unshift(c);
   saveContractsToStorage();
+  sbUpsertRow(c.id, c);
 }
 
 function navigateTo(view, contractId = null) {
@@ -590,10 +729,17 @@ function renderHeader() {
     navItems.push(['usuarios', '👤 Usuários']);
   }
 
+  const cloudBadge = cloudStatus === 'online'
+    ? `<button type="button" data-action="sync-cloud" title="Conectado ao Supabase (Clique para atualizar dados da nuvem)" style="background:rgba(34,197,94,0.22);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:600;">☁️ Supabase Online ↻</button>`
+    : cloudStatus === 'connecting'
+      ? `<button type="button" data-action="sync-cloud" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;">⏳ Sincronizando…</button>`
+      : `<button type="button" data-action="sync-cloud" title="${esc(cloudErrorDetail)}" style="background:rgba(239,68,68,0.35);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:5px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:600;">⚠️ Local (Tentar Nuvem ↻)</button>`;
+
   $('#nav').innerHTML = navItems.map(([k, label]) => {
     const isActive = currentView === k || (k === 'contratos' && ['contrato', 'editar', 'aditivo'].includes(currentView));
     return `<button type="button" data-action="nav" data-view="${k}" style="color:#fff;border:1px solid ${isActive ? 'rgba(255,255,255,0.45)' : 'transparent'};padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;background:${isActive ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)'};">${label}</button>`;
   }).join('') + `
+    ${cloudBadge}
     <button type="button" data-action="toggle-theme" title="Alternar Tema" style="background:rgba(255,255,255,0.14);border:none;color:#fff;padding:6px 9px;border-radius:8px;cursor:pointer;font-size:13px;">${isDark ? '☀️' : '🌙'}</button>
     <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.25);padding:4px 9px;border-radius:8px;font-size:12px;margin-left:auto;">
       <span>👤 ${esc((currentUser?.name || currentUser?.login || 'Usuário').split(' ')[0])}</span>
@@ -1404,6 +1550,7 @@ document.addEventListener('click', e => {
   if (action === 'nav-edit') { navigateTo('editar', btn.dataset.id); return; }
   if (action === 'nav-aditivo') { navigateTo('aditivo', btn.dataset.id); return; }
   if (action === 'close-modal') { $('#modal-root').innerHTML = ''; return; }
+  if (action === 'sync-cloud') { syncFromSupabase(false); return; }
 
   if (action === 'logout') {
     currentUser = null;
@@ -1424,7 +1571,7 @@ document.addEventListener('click', e => {
   if (action === 'del-user') {
     if (!isAdminUser(currentUser)) return;
     users = users.filter(x => x.id !== btn.dataset.id);
-    storageSet(STORAGE_USERS, JSON.stringify(users));
+    saveUsersToStorageAndCloud();
     toast('Conta removida.'); render(); return;
   }
 
@@ -1454,7 +1601,10 @@ document.addEventListener('click', e => {
   if (action === 'delete-contract') {
     const cid = btn.dataset.id;
     if (deleteArmedId !== cid) { deleteArmedId = cid; toast('Toque novamente para confirmar a exclusão.', 'warn'); render(); return; }
-    contracts = contracts.filter(x => x.id !== cid); saveContractsToStorage(); deleteArmedId = null; toast('Contrato excluído.'); navigateTo('contratos');
+    contracts = contracts.filter(x => x.id !== cid);
+    saveContractsToStorage();
+    sbDeleteRow(cid);
+    deleteArmedId = null; toast('Contrato excluído.'); navigateTo('contratos');
     return;
   }
 
@@ -1570,7 +1720,7 @@ document.addEventListener('submit', e => {
     if (idx >= 0) {
       users[idx].pass = newPass;
       users[idx].mustChangePass = false;
-      storageSet(STORAGE_USERS, JSON.stringify(users));
+      saveUsersToStorageAndCloud();
     }
     storageSet(STORAGE_SESSION, JSON.stringify(currentUser));
     toast('Senha definitiva cadastrada com sucesso!');
@@ -1598,7 +1748,7 @@ document.addEventListener('submit', e => {
       return;
     }
     users.push(nu);
-    storageSet(STORAGE_USERS, JSON.stringify(users));
+    saveUsersToStorageAndCloud();
     toast(`Usuário ${nu.name} cadastrado com senha temporária!`);
     form.reset(); render(); return;
   }
@@ -1677,10 +1827,16 @@ document.addEventListener('submit', e => {
 $('#import-file').addEventListener('change', ev => {
   const file = ev.target.files?.[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const data = JSON.parse(reader.result);
-      if (Array.isArray(data)) { contracts = data; saveContractsToStorage(); toast(`${data.length} contratos importados!`); render(); }
+      if (Array.isArray(data)) {
+        contracts = data;
+        saveContractsToStorage();
+        for (const c of contracts) await sbUpsertRow(c.id, c);
+        toast(`${data.length} contratos importados e enviados ao Supabase!`);
+        render();
+      }
       else toast('Formato JSON inválido.', 'error');
     } catch (e) { toast('Falha ao ler arquivo JSON.', 'error'); }
   };
@@ -1689,6 +1845,7 @@ $('#import-file').addEventListener('change', ev => {
 
 seedInitialData();
 render();
+syncFromSupabase(true);
 </script>
 </body>
 </html>
