@@ -279,7 +279,32 @@
   </div>
 </header>
 
-<main id="app" style="max-width: 1140px; margin: 0 auto; padding: 14px 12px;"></main>
+<main id="app" style="max-width: 1140px; margin: 0 auto; padding: 14px 12px;">
+  <div style="min-height: 84vh; display: flex; align-items: center; justify-content: center; padding: 14px;">
+    <div class="card" style="max-width: 410px; width: 100%; padding: 28px 22px; border-top: 5px solid var(--pr); box-shadow: 0 12px 32px rgba(0,0,0,0.08);">
+      <div style="text-align: center; margin-bottom: 22px;">
+        <div style="width: 54px; height: 54px; border-radius: 14px; background: linear-gradient(135deg, #1b5e32 0%, #5c3f2e 100%); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(31,107,58,0.25);">🌳</div>
+        <h2 style="margin: 0; font-size: 21px; font-weight: 700;">Controle de Prazos TCA</h2>
+        <p style="margin: 4px 0 0; color: var(--mu); font-size: 13px;">Gestão de Termos de Compromisso Ambiental</p>
+      </div>
+      <form id="login-form" style="display: flex; flex-direction: column; gap: 14px;" autocomplete="off">
+        <div>
+          <label class="field-label">Usuário ou E-mail</label>
+          <input type="text" name="identity" placeholder="Digite seu usuário ou e-mail" required autocomplete="off">
+        </div>
+        <div>
+          <label class="field-label">Senha</label>
+          <input type="password" name="pass" placeholder="Digite sua senha" required autocomplete="off">
+        </div>
+        <button type="submit" id="btn-login-submit" class="btn btn-primary" style="padding: 11px; margin-top: 4px; font-size: 14px; width: 100%;">Entrar no Sistema</button>
+      </form>
+      <div id="login-cloud-status" style="margin-top: 12px; text-align: center; font-size: 12px;"></div>
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--bd); text-align: center; font-size: 12px; color: var(--mu);">
+        Acesso restrito a usuários autorizados. Senhas protegidas com criptografia SHA-256.
+      </div>
+    </div>
+  </div>
+</main>
 
 <div id="modal-root"></div>
 <div id="toast-container"></div>
@@ -354,7 +379,7 @@ const addM = (s, n) => {
 const diff = s => Math.round((P(s) - P(today())) / 864e5);
 
 const TYPES = ['Corte', 'Remoção', 'Transplante'];
-const slug = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 function toast(msg, type = 'success') {
   const box = $('#toast-container');
@@ -1708,8 +1733,7 @@ function copyContractSummary(c) {
     `RESUMO TCA — ${c.client}`, `SEI: ${c.sei || '—'} | TCA: ${c.tca || '—'}`, `Endereço: ${c.address}`,
     `Extrato D.O.: ${BR(c.extractDate)}`, `Eficácia: ${BR(eff(c))}`, `Progresso: ${progress(c)}%`, `----------------------------------------`,
     ...act(c).map(d => `[${d.done ? 'CONCLUÍDO' : (overdue(d) ? 'ATRASADO' : 'PENDENTE')}] ${d.name} — ${d.due ? BR(d.due) : 'Aguardando informação da realização'}`)
-  ].join('
-');
+  ].join('\n');
   const ta = document.createElement('textarea'); ta.value = lines; document.body.appendChild(ta); ta.select();
   try { document.execCommand('copy'); toast('Resumo copiado para a área de transferência!'); } catch (e) { toast('Não foi possível copiar.', 'error'); }
   document.body.removeChild(ta);
