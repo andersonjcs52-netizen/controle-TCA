@@ -457,7 +457,7 @@ async function syncFromSupabase(silent = true, skipRenderIfLogin = false) {
     cloudStatus = 'connecting';
     renderHeader();
     updateLoginCloudBadge();
-    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?select=id,data,updated_at&t=${Date.now()}`, {
+    const res = await fetch(`${SUPABASE_REST_URL}/${SUPABASE_TABLE}?select=id,data,updated_at`, {
       method: 'GET',
       headers: supabaseHeaders('')
     });
